@@ -1,0 +1,69 @@
+{
+  "name": "cursor-desktop-pet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-platform desktop pet experiments for macOS and Windows.",
+  "author": "cursor-desktop",
+  "main": "electron/main.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/baitang-bt/desktopPet.git"
+  },
+  "scripts": {
+    "start": "node scripts/start-electron.js",
+    "check": "node --check electron/main.js && node --check electron/preload.js && node --check electron/app-updater.js && node --check electron/idle-mode-controller.js && node --check electron/pet-size.js && node --check electron/state-store.js && node --check electron/window-snap-controller.js && node --check src/pet.js && node --check src/settings.js && node --check src/live2d/live2d-viewer.js && node --check scripts/start-electron.js && node --test test/*.test.js",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
+    "dist": "electron-builder",
+    "publish:mac": "electron-builder --mac --publish always",
+    "publish:win": "electron-builder --win --publish always"
+  },
+  "devDependencies": {
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.cursordesktop.pet",
+    "productName": "DesktopPet",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "src/**/*",
+      "assets/**/*"
+    ],
+    "asarUnpack": [
+      "**/node_modules/get-windows/**"
+    ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "baitang-bt",
+        "repo": "desktopPet",
+        "private": true,
+        "releaseType": "release"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.entertainment",
+      "target": [
+        "dmg",
+        "zip",
+        "dir"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9",
+    "get-windows": "^9.3.0"
+  },
+  "allowScripts": {
+    "get-windows@9.3.0": true
+  }
+}

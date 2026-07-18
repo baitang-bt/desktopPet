@@ -1,0 +1,168 @@
+:root {
+  --pet-scale: 1;
+  --pet-base-width: 440px;
+  --pet-base-height: 330px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #322419;
+}
+
+* {
+  box-sizing: border-box;
+  user-select: none;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+.pet-stage {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding: 10px;
+}
+
+.pet-area {
+  width: calc(var(--pet-base-width) * var(--pet-scale) + 20px);
+  height: calc(var(--pet-base-height) * var(--pet-scale) + 70px);
+  display: grid;
+  place-items: center;
+  align-content: center;
+}
+
+.speech,
+.hint {
+  margin: 0;
+  color: #3b291d;
+  background: rgb(255 255 255 / 92%);
+  border: 2px solid #3b291d;
+  border-radius: 12px;
+  box-shadow: 0 3px 8px rgb(0 0 0 / 18%);
+}
+
+.speech {
+  padding: 6px 10px;
+  font-size: 13px;
+  transform: rotate(-2deg);
+}
+
+.hint {
+  margin-top: 8px;
+  padding: 4px 8px;
+  font-size: 10px;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.pet-area:hover .hint {
+  opacity: 1;
+}
+
+.pet-shell {
+  width: calc(var(--pet-base-width) * var(--pet-scale));
+  height: calc(var(--pet-base-height) * var(--pet-scale));
+  display: grid;
+  place-items: center;
+}
+
+.pet {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  filter: drop-shadow(0 8px 8px rgb(33 22 14 / 24%));
+}
+
+.pet:active {
+  cursor: grabbing;
+}
+
+.pet.is-seat-preview,
+.pet.is-seated,
+.pet.is-seated-pose,
+.pet.is-stand-preview,
+.pet.is-standing-on-window {
+  transition: transform 220ms ease;
+}
+
+.pet.is-seat-preview {
+  transform: translateY(36px) scale(0.9);
+}
+
+.pet.is-seated,
+.pet.is-seated-pose {
+  transform: translateY(36px) scale(0.9);
+}
+
+.pet:is(.is-seat-preview, .is-seated)[data-seat-pose="1"] {
+  transform: translate(-12px, 34px) rotate(-4deg) scale(0.88);
+}
+
+.pet:is(.is-seat-preview, .is-seated)[data-seat-pose="2"] {
+  transform: translate(12px, 42px) rotate(3deg) scale(0.84);
+}
+
+.pet:is(.is-seat-preview, .is-seated)[data-seat-placement="left-corner"][data-seat-pose="0"] {
+  transform: translate(-16px, 36px) rotate(-3deg) scale(0.87);
+}
+
+.pet:is(.is-seat-preview, .is-seated)[data-seat-placement="left-corner"][data-seat-pose="1"] {
+  transform: translate(-24px, 32px) rotate(-7deg) scale(0.83);
+}
+
+.pet:is(.is-seat-preview, .is-seated)[data-seat-placement="left-corner"][data-seat-pose="2"] {
+  transform: translate(-12px, 44px) rotate(3deg) scale(0.82);
+}
+
+.pet:is(.is-seat-preview, .is-seated)[data-seat-placement="right-corner"][data-seat-pose="0"] {
+  transform: translate(16px, 36px) rotate(3deg) scale(0.87);
+}
+
+.pet:is(.is-seat-preview, .is-seated)[data-seat-placement="right-corner"][data-seat-pose="1"] {
+  transform: translate(24px, 32px) rotate(7deg) scale(0.83);
+}
+
+.pet:is(.is-seat-preview, .is-seated)[data-seat-placement="right-corner"][data-seat-pose="2"] {
+  transform: translate(12px, 44px) rotate(-3deg) scale(0.82);
+}
+
+.pet canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.pet.is-loaded canvas {
+  opacity: 1;
+}
+
+.live2d-status {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: max-content;
+  margin: 0;
+  padding: 5px 8px;
+  border-radius: 8px;
+  color: #70401f;
+  background: rgb(255 250 242 / 90%);
+  font-size: 10px;
+  transform: translate(-50%, -50%);
+}
+
+.pet.is-loaded .live2d-status {
+  display: none;
+}
+
+.pet.has-error .live2d-status {
+  color: #fff;
+  background: #b74235;
+}

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self'; script-src 'self'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>桌宠设置</title>
+    <link rel="stylesheet" href="./settings.css" />
+  </head>
+  <body>
+    <main class="settings-menu" aria-label="桌宠设置">
+      <header class="settings-header">
+        <div class="settings-title">
+          <p class="settings-kicker">DESKTOP PET</p>
+          <h1>设置</h1>
+        </div>
+        <button class="icon-button" id="close-settings" type="button" aria-label="关闭设置">×</button>
+      </header>
+
+      <nav class="settings-tabs" aria-label="设置分类">
+        <button class="tab-button is-active" type="button" data-tab="general">常规</button>
+        <button class="tab-button" type="button" data-tab="appearance">外观</button>
+      </nav>
+
+      <div class="settings-content">
+        <section class="settings-panel is-active" data-panel="general">
+          <label class="setting-row">
+            <span class="setting-text">
+              <strong>始终置顶</strong>
+              <small>让桌宠保持在其他窗口上方</small>
+            </span>
+            <span class="switch">
+              <input id="always-on-top" type="checkbox" />
+              <span class="switch-track" aria-hidden="true"></span>
+            </span>
+          </label>
+          <label class="setting-row">
+            <span class="setting-text">
+              <strong>角色动画</strong>
+              <small>播放待机、眨眼与视线动画</small>
+            </span>
+            <span class="switch">
+              <input id="animations-enabled" type="checkbox" />
+              <span class="switch-track" aria-hidden="true"></span>
+            </span>
+          </label>
+          <label class="setting-row">
+            <span class="setting-text">
+              <strong>开机自启动</strong>
+              <small>登录系统后自动启动桌宠</small>
+            </span>
+            <span class="switch">
+              <input id="launch-at-login" type="checkbox" />
+              <span class="switch-track" aria-hidden="true"></span>
+            </span>
+          </label>
+          <label class="setting-row setting-row--stacked" for="idle-timeout">
+            <span class="setting-text">
+              <strong>低耗能模式</strong>
+              <small>无操作超过设定时间后隐藏桌宠以节省资源</small>
+            </span>
+            <select id="idle-timeout">
+              <option value="30">30 秒</option>
+              <option value="60">60 秒</option>
+              <option value="300">5 分钟</option>
+              <option value="600">10 分钟</option>
+              <option value="1800">30 分钟</option>
+              <option value="3600">60 分钟</option>
+              <option value="7200">120 分钟</option>
+              <option value="0">不使用</option>
+            </select>
+          </label>
+          <div class="setting-row setting-row--stacked">
+            <span class="setting-text setting-text--split">
+              <strong>应用更新</strong>
+              <output id="app-version"></output>
+            </span>
+            <p class="update-status" id="update-status">点击检查更新</p>
+            <div class="button-row">
+              <button class="secondary-button" id="check-update" type="button">检查更新</button>
+              <button class="primary-button" id="install-update" type="button" disabled>更新</button>
+            </div>
+          </div>
+          <button class="secondary-button" id="reset-settings" type="button">恢复默认设置</button>
+        </section>
+
+        <section class="settings-panel" data-panel="appearance">
+          <label class="setting-row setting-row--stacked" for="pet-model">
+            <span class="setting-text">
+              <strong>Live2D 角色</strong>
+              <small>切换当前显示的角色模型</small>
+            </span>
+            <select id="pet-model"></select>
+          </label>
+          <div class="setting-row setting-row--stacked">
+            <span class="setting-text setting-text--split">
+              <strong>桌宠大小</strong>
+              <output id="pet-size-value" for="pet-size"></output>
+            </span>
+            <input id="pet-size" type="range" min="0.3" max="3" step="0.05" />
+          </div>
+          <p class="setting-note">设置和窗口位置会自动保存在当前电脑中。</p>
+        </section>
+      </div>
+
+      <footer class="settings-footer">
+        <p class="drag-hint">拖动标题栏移动 · 右键桌宠开关本窗口</p>
+        <button class="danger-button" id="quit-app" type="button">关闭应用</button>
+      </footer>
+    </main>
+    <script src="./settings.js"></script>
+  </body>
+</html>

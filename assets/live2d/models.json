@@ -1,0 +1,29 @@
+{
+  "defaultModelId": "haru",
+  "models": [
+    {
+      "id": "haru",
+      "name": "Haru",
+      "path": "../assets/live2d/haru/haru_greeter_t03.model3.json",
+      "tapMotion": "Tap"
+    },
+    {
+      "id": "hiyori",
+      "name": "Hiyori",
+      "path": "../assets/live2d/hiyori/Hiyori.model3.json",
+      "tapMotion": "TapBody"
+    },
+    {
+      "id": "mao",
+      "name": "Mao",
+      "path": "../assets/live2d/mao/Mao.model3.json",
+      "tapMotion": "TapBody"
+    },
+    {
+      "id": "wanko",
+      "name": "Wanko",
+      "path": "../assets/live2d/wanko/Wanko.model3.json",
+      "tapMotion": "TapBody"
+    }
+  ]
+}
