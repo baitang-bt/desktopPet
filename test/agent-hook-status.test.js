@@ -102,6 +102,7 @@ describe("agent hook status", () => {
       agentIntervalMs: 60_000,
       cooldownMs: 1,
       agentCooldownMs: 1,
+      agentHookCooldownMs: 1,
       nowFn: () => Date.now(),
       setIntervalFn: () => 1,
       clearIntervalFn: () => {},
@@ -117,10 +118,80 @@ describe("agent hook status", () => {
       statusPath,
       JSON.stringify({ version: 1, seq, kind: "complete", at: Date.now() }) + "\n"
     );
-    await controller.tick();
+    assert.equal(controller.flushAgentHookAlerts(), true);
 
     assert.equal(reactions.at(-1)?.id, "agent-complete");
     assert.equal(reactions.at(-1)?.source, "agent-hook");
+    controller.stop();
+  });
+
+  it("flushes hook alerts even while an OCR tick is in flight", async () => {
+    const reactions = [];
+    let seq = 1;
+    fs.writeFileSync(
+      statusPath,
+      JSON.stringify({ version: 1, seq, kind: "complete", at: Date.now() }) + "\n"
+    );
+
+    const consumer = createAgentHookConsumer({ statusPath });
+    let releaseCapture;
+    const captureGate = new Promise((resolve) => {
+      releaseCapture = resolve;
+    });
+    let captureCount = 0;
+
+    const controller = createScreenAwarenessController({
+      getActiveWindow: async () => ({ owner: { name: "Cursor" }, title: "x" }),
+      captureScreen: async () => {
+        captureCount += 1;
+        if (captureCount === 1) {
+          return {
+            image: {},
+            size: { width: 4, height: 4 },
+            bitmap: Buffer.alloc(64, 200),
+            dataUrl: "data:image/png;base64,xx"
+          };
+        }
+
+        await captureGate;
+        return {
+          image: {},
+          size: { width: 4, height: 4 },
+          bitmap: Buffer.alloc(64, 200),
+          dataUrl: "data:image/png;base64,xx"
+        };
+      },
+      recognizeText: async () => {
+        await captureGate;
+        return "Needs attention";
+      },
+      getScreenAccessStatus: async () => "granted",
+      onReaction: (reaction) => reactions.push(reaction),
+      intervalMs: 60_000,
+      agentIntervalMs: 60_000,
+      cooldownMs: 1,
+      agentCooldownMs: 1,
+      agentHookCooldownMs: 1,
+      nowFn: () => Date.now(),
+      setIntervalFn: () => 1,
+      clearIntervalFn: () => {},
+      agentHookConsumer: consumer
+    });
+
+    controller.setAgentAlertEnabled(true);
+    const startPromise = controller.start();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    seq += 1;
+    fs.writeFileSync(
+      statusPath,
+      JSON.stringify({ version: 1, seq, kind: "permission", at: Date.now() }) + "\n"
+    );
+    assert.equal(controller.flushAgentHookAlerts(), true);
+    assert.equal(reactions.at(-1)?.id, "agent-permission");
+
+    releaseCapture();
+    await startPromise;
     controller.stop();
   });
 });

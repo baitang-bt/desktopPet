@@ -72,7 +72,14 @@ async function layoutSpeechBubble() {
 }
 
 function showReaction(reaction) {
-  if (!reaction?.speech || pet.classList.contains("is-falling")) {
+  if (!reaction?.speech) {
+    return;
+  }
+
+  const isAgentAlert = reaction.source === "agent" || reaction.source === "agent-hook";
+
+  // 普通情景在下落时跳过；Agent 完成/请求必须立刻出气泡
+  if (!isAgentAlert && pet.classList.contains("is-falling")) {
     return;
   }
 
@@ -93,7 +100,7 @@ function showReaction(reaction) {
     speech.hidden = true;
     resetSpeechOffset();
     speechHideTimer = null;
-  }, SPEECH_DISPLAY_MS);
+  }, isAgentAlert ? Math.max(SPEECH_DISPLAY_MS, 5500) : SPEECH_DISPLAY_MS);
 }
 
 async function migrateLegacySettings() {

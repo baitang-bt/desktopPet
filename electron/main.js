@@ -944,7 +944,21 @@ function broadcastScreenAwarenessStatus(status) {
 }
 
 function sendPetReaction(reaction) {
-  if (petWindow && !petWindow.isDestroyed() && reaction) {
+  if (!reaction) {
+    return;
+  }
+
+  const isAgentAlert = reaction.source === "agent" || reaction.source === "agent-hook";
+
+  if (isAgentAlert) {
+    idleModeController?.wake();
+
+    if (petWindow && !petWindow.isDestroyed() && !petWindow.isVisible()) {
+      petWindow.showInactive();
+    }
+  }
+
+  if (petWindow && !petWindow.isDestroyed() && reaction.speech) {
     petWindow.webContents.send("pet:reaction", reaction);
   }
 
@@ -1129,7 +1143,8 @@ function createAgentHookWatcher(statusPath, onChange) {
 
   const schedule = () => {
     clearTimeout(timer);
-    timer = setTimeout(() => onChange?.(), 80);
+    // 尽快弹出气泡；合并同一次写入的重复 watch 事件
+    timer = setTimeout(() => onChange?.(), 16);
   };
 
   try {

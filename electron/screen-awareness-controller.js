@@ -14,9 +14,11 @@ const {
 const { createAgentHookConsumer } = require("./agent-hook-status");
 
 const DEFAULT_INTERVAL_MS = 20_000;
-const DEFAULT_AGENT_INTERVAL_MS = 10_000;
+const DEFAULT_AGENT_INTERVAL_MS = 3_000;
 const DEFAULT_COOLDOWN_MS = 90_000;
-const DEFAULT_AGENT_COOLDOWN_MS = 45_000;
+const DEFAULT_AGENT_COOLDOWN_MS = 20_000;
+const DEFAULT_AGENT_HOOK_COOLDOWN_MS = 4_000;
+const DEFAULT_AGENT_HOOK_POLL_MS = 1_000;
 const CAPTURE_MAX_WIDTH = 1280;
 const DEFAULT_AGENT_WINDOW_PATTERNS = [
   /cursor/i,
@@ -42,6 +44,8 @@ function createScreenAwarenessController({
   agentIntervalMs = DEFAULT_AGENT_INTERVAL_MS,
   cooldownMs = DEFAULT_COOLDOWN_MS,
   agentCooldownMs = DEFAULT_AGENT_COOLDOWN_MS,
+  agentHookCooldownMs = DEFAULT_AGENT_HOOK_COOLDOWN_MS,
+  agentHookPollMs = DEFAULT_AGENT_HOOK_POLL_MS,
   setIntervalFn = setInterval,
   clearIntervalFn = clearInterval,
   nowFn = () => Date.now(),
@@ -52,6 +56,7 @@ function createScreenAwarenessController({
   let agentAlertEnabled = false;
   let running = false;
   let timer = null;
+  let hookPollTimer = null;
   let hookWatcher = null;
   let tickInFlight = false;
   let lastReactionId = null;
@@ -164,10 +169,13 @@ function createScreenAwarenessController({
     }
 
     const now = nowFn();
-    const coolDown =
-      reaction.source === "agent" || reaction.source === "agent-hook"
-        ? agentCooldownMs
-        : cooldownMs;
+    let coolDown = cooldownMs;
+
+    if (reaction.source === "agent-hook") {
+      coolDown = agentHookCooldownMs;
+    } else if (reaction.source === "agent") {
+      coolDown = agentCooldownMs;
+    }
 
     if (reaction.id === lastReactionId && now - lastReactionAt < coolDown) {
       return false;
@@ -194,6 +202,23 @@ function createScreenAwarenessController({
     });
   }
 
+  /** Hooks 提醒不走 OCR tick，避免被截屏/识别卡住。 */
+  function flushAgentHookAlerts() {
+    if (!enabled || !running || !agentAlertEnabled) {
+      return false;
+    }
+
+    const timeOptions = { now: new Date(nowFn()) };
+    const hookReaction = consumeHookReaction(timeOptions);
+
+    if (!shouldEmit(hookReaction)) {
+      return false;
+    }
+
+    onReaction?.(hookReaction);
+    return true;
+  }
+
   function stopHookWatcher() {
     if (typeof hookWatcher === "function") {
       hookWatcher();
@@ -204,6 +229,25 @@ function createScreenAwarenessController({
     }
   }
 
+  function stopHookPoll() {
+    if (hookPollTimer) {
+      clearIntervalFn(hookPollTimer);
+      hookPollTimer = null;
+    }
+  }
+
+  function startHookPoll() {
+    stopHookPoll();
+
+    if (!agentAlertEnabled) {
+      return;
+    }
+
+    hookPollTimer = setIntervalFn(() => {
+      flushAgentHookAlerts();
+    }, agentHookPollMs);
+  }
+
   function startHookWatcher() {
     stopHookWatcher();
 
@@ -212,11 +256,7 @@ function createScreenAwarenessController({
     }
 
     hookWatcher = watchAgentHookStatus(hookConsumer.statusPath, () => {
-      if (!enabled || !running || !agentAlertEnabled) {
-        return;
-      }
-
-      void tick({ hookOnly: true });
+      flushAgentHookAlerts();
     });
   }
 
@@ -252,7 +292,7 @@ function createScreenAwarenessController({
     }, currentIntervalMs());
   }
 
-  async function tick({ hookOnly = false } = {}) {
+  async function tick() {
     if (!enabled || !running || tickInFlight) {
       return;
     }
@@ -260,16 +300,10 @@ function createScreenAwarenessController({
     tickInFlight = true;
 
     try {
+      // OCR 开始前先冲刷 Hooks，避免长截屏期间漏掉完成态
+      flushAgentHookAlerts();
+
       const timeOptions = { now: new Date(nowFn()) };
-
-      if (hookOnly) {
-        const hookReaction = consumeHookReaction(timeOptions);
-        if (shouldEmit(hookReaction)) {
-          onReaction?.(hookReaction);
-        }
-        return;
-      }
-
       const activeWindow = (await getActiveWindow?.()) ?? null;
       const appReaction = matchAppReaction(activeWindow, timeOptions);
       const appChangeReaction = buildAppChangeReaction(
@@ -281,7 +315,7 @@ function createScreenAwarenessController({
       let ocrReaction = null;
       let visionReaction = null;
       let sceneChangeReaction = null;
-      let agentReaction = consumeHookReaction(timeOptions);
+      let agentReaction = null;
       let ocrText = "";
 
       if (canCapture || mode === "full" || mode === "app-only" || mode === "denied") {
@@ -305,7 +339,9 @@ function createScreenAwarenessController({
                 timeOptions
               );
 
-              if (agentAlertEnabled && !agentReaction) {
+              if (agentAlertEnabled) {
+                // OCR 中途 Hooks 可能又写入了完成/请求
+                flushAgentHookAlerts();
                 agentReaction = matchAgentAlertReaction(ocrText, activeWindow, {
                   ...timeOptions,
                   agentContext:
@@ -345,6 +381,7 @@ function createScreenAwarenessController({
       emitStatus();
     } finally {
       tickInFlight = false;
+      flushAgentHookAlerts();
     }
   }
 
@@ -365,6 +402,7 @@ function createScreenAwarenessController({
     await refreshCaptureAccess();
     restartTimer();
     startHookWatcher();
+    startHookPoll();
     emitStatus();
     await tick();
   }
@@ -379,6 +417,7 @@ function createScreenAwarenessController({
     previousVisionMetrics = null;
     stopTimer();
     stopHookWatcher();
+    stopHookPoll();
     emitStatus();
   }
 
@@ -396,6 +435,10 @@ function createScreenAwarenessController({
     if (enabled && running) {
       restartTimer();
       startHookWatcher();
+      startHookPoll();
+    } else {
+      stopHookWatcher();
+      stopHookPoll();
     }
 
     emitStatus();
@@ -407,6 +450,7 @@ function createScreenAwarenessController({
     setEnabled,
     setAgentAlertEnabled,
     tick,
+    flushAgentHookAlerts,
     getStatus,
     isEnabled: () => enabled,
     isAgentAlertEnabled: () => agentAlertEnabled
@@ -505,6 +549,8 @@ function createTesseractRecognizer(createWorker) {
 module.exports = {
   CAPTURE_MAX_WIDTH,
   DEFAULT_AGENT_COOLDOWN_MS,
+  DEFAULT_AGENT_HOOK_COOLDOWN_MS,
+  DEFAULT_AGENT_HOOK_POLL_MS,
   DEFAULT_AGENT_INTERVAL_MS,
   DEFAULT_AGENT_WINDOW_PATTERNS,
   DEFAULT_COOLDOWN_MS,
