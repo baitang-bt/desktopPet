@@ -117,10 +117,7 @@ function createPetWindow() {
     alwaysOnTop: settings.alwaysOnTop,
     title: "桌宠"
   });
-  petWindow.setAlwaysOnTop(
-    settings.alwaysOnTop,
-    process.platform === "darwin" ? "floating" : "normal"
-  );
+  petWindow.setAlwaysOnTop(settings.alwaysOnTop, getPetAlwaysOnTopLevel());
   petWindow.loadFile(path.join(__dirname, "..", "src", "index.html"));
   // visibleOnFullScreen 让桌宠盖在全屏应用上，代价是 macOS 会隐藏程序坞图标。
   petWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -533,8 +530,10 @@ function sendSeatState(payload) {
   applyPetLayer(enriched);
 }
 
+// floating 盖得过普通访达/资源管理器，但低于应用呼出的打开/保存面板（modal-panel）。
+// status 在其之上，且仍低于 Dock / 任务栏（pop-up-menu 及以上才会盖住）。
 function getPetAlwaysOnTopLevel() {
-  return process.platform === "darwin" ? "floating" : "normal";
+  return "status";
 }
 
 const SCREEN_FLOOR_LAYER_TOLERANCE = 28;
