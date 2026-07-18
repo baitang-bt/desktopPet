@@ -24,6 +24,8 @@ const gravityInput = document.querySelector("#gravity-enabled");
 const screenAwarenessInput = document.querySelector("#screen-awareness-enabled");
 const agentAlertInput = document.querySelector("#agent-alert-enabled");
 const screenAwarenessStatus = document.querySelector("#screen-awareness-status");
+const cursorHooksStatus = document.querySelector("#cursor-hooks-status");
+const installCursorHooksButton = document.querySelector("#install-cursor-hooks");
 const dialogueBuiltinPath = document.querySelector("#dialogue-builtin-path");
 const dialogueOverlayPath = document.querySelector("#dialogue-overlay-path");
 const dialogueStatus = document.querySelector("#dialogue-status");
@@ -54,11 +56,13 @@ async function initialize() {
   renderSettings();
   renderUpdateStatus(await window.desktopPet.getUpdateStatus());
   await refreshScreenAwarenessStatus();
+  await refreshCursorHooksInfo();
   await refreshDialogueInfo();
   window.desktopPet.onSettingsChanged((updatedSettings) => {
     settings = updatedSettings;
     renderSettings();
     void refreshScreenAwarenessStatus();
+    void refreshCursorHooksInfo();
   });
   window.desktopPet.onLive2dCatalogChanged?.((catalog) => {
     applyLive2dCatalog(catalog);
@@ -67,6 +71,7 @@ async function initialize() {
   window.desktopPet.onScreenAwarenessStatusChanged?.(renderScreenAwarenessStatus);
   statusPollTimer = setInterval(() => {
     void refreshScreenAwarenessStatus();
+    void refreshCursorHooksInfo();
   }, 4000);
 }
 
@@ -156,6 +161,28 @@ async function refreshScreenAwarenessStatus() {
   renderScreenAwarenessStatus(await window.desktopPet.getScreenAwarenessStatus());
 }
 
+function renderCursorHooksInfo(info) {
+  if (!cursorHooksStatus || !info) {
+    return;
+  }
+
+  if (info.installed) {
+    cursorHooksStatus.textContent = "已安装（完成态走 Hooks，请求仍可能靠 OCR）";
+  } else if (info.scriptInstalled || info.configured) {
+    cursorHooksStatus.textContent = "配置不完整，请重新安装";
+  } else {
+    cursorHooksStatus.textContent = "未安装：开启 Agent 提醒时会尝试自动安装";
+  }
+}
+
+async function refreshCursorHooksInfo() {
+  if (!window.desktopPet.getCursorHooksInfo) {
+    return;
+  }
+
+  renderCursorHooksInfo(await window.desktopPet.getCursorHooksInfo());
+}
+
 function renderDialogueInfo(info) {
   if (!info) {
     return;
@@ -243,7 +270,26 @@ agentAlertInput.addEventListener("change", () => {
     return;
   }
 
-  updateSettings({ agentAlertEnabled: agentAlertInput.checked });
+  updateSettings({ agentAlertEnabled: agentAlertInput.checked }).then(() => {
+    void refreshCursorHooksInfo();
+  });
+});
+installCursorHooksButton?.addEventListener("click", async () => {
+  if (!window.desktopPet.installCursorHooks) {
+    return;
+  }
+
+  installCursorHooksButton.disabled = true;
+  const result = await window.desktopPet.installCursorHooks();
+  renderCursorHooksInfo(await window.desktopPet.getCursorHooksInfo());
+
+  if (cursorHooksStatus) {
+    cursorHooksStatus.textContent = result?.ok
+      ? "已安装。若 Cursor 已打开，重载窗口或重启后生效。"
+      : result?.error || "安装失败";
+  }
+
+  installCursorHooksButton.disabled = false;
 });
 revealDialogueBuiltinButton?.addEventListener("click", async () => {
   renderDialogueInfo(await window.desktopPet.revealDialogue("builtin"));

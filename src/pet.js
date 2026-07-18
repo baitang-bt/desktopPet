@@ -27,6 +27,50 @@ async function initializeSettings() {
   window.desktopPet.onReaction(showReaction);
 }
 
+function resetSpeechOffset() {
+  speech.style.removeProperty("--speech-dx");
+  speech.style.removeProperty("--speech-dy");
+}
+
+async function layoutSpeechBubble() {
+  if (speech.hidden || !window.desktopPet.getSpeechLayout) {
+    return;
+  }
+
+  resetSpeechOffset();
+
+  // 等文本排版完成后再量宽高
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+  const layout = await window.desktopPet.getSpeechLayout();
+  if (!layout?.bounds || !layout?.workArea) {
+    return;
+  }
+
+  const rect = speech.getBoundingClientRect();
+  const compute =
+    globalThis.DesktopPetSpeechLayout?.computeSpeechShift ??
+    (typeof require === "function" ? require("./speech-layout").computeSpeechShift : null);
+
+  if (!compute) {
+    return;
+  }
+
+  const { dx, dy } = compute({
+    bubble: {
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      bottom: rect.bottom
+    },
+    windowBounds: layout.bounds,
+    workArea: layout.workArea
+  });
+
+  speech.style.setProperty("--speech-dx", `${dx}px`);
+  speech.style.setProperty("--speech-dy", `${dy}px`);
+}
+
 function showReaction(reaction) {
   if (!reaction?.speech || pet.classList.contains("is-falling")) {
     return;
@@ -39,6 +83,7 @@ function showReaction(reaction) {
 
   speech.hidden = false;
   speech.textContent = reaction.speech;
+  void layoutSpeechBubble();
 
   if (reaction.motionGroup) {
     window.live2dPet.playReactionMotion?.(reaction.motionGroup);
@@ -46,6 +91,7 @@ function showReaction(reaction) {
 
   speechHideTimer = setTimeout(() => {
     speech.hidden = true;
+    resetSpeechOffset();
     speechHideTimer = null;
   }, SPEECH_DISPLAY_MS);
 }
@@ -281,6 +327,16 @@ pet.addEventListener("contextmenu", (event) => {
   event.preventDefault();
   window.desktopPet.toggleSettings();
   speech.textContent = "右键开关设置";
+  speech.hidden = false;
+  void layoutSpeechBubble();
+  if (speechHideTimer) {
+    clearTimeout(speechHideTimer);
+  }
+  speechHideTimer = setTimeout(() => {
+    speech.hidden = true;
+    resetSpeechOffset();
+    speechHideTimer = null;
+  }, SPEECH_DISPLAY_MS);
 });
 document.addEventListener("mousemove", dragPet);
 document.addEventListener("mousemove", updateMousePassthrough);

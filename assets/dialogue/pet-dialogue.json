@@ -16,7 +16,8 @@
       "variants": "同情景下按 when 优先选用的台词组；都不匹配则用 speeches",
       "placeholders": "change.appNamed 可用 {name} 插入应用名"
     },
-    "tip": "更具体的规则请放在数组更前面（先匹配先生效）。"
+    "tip": "更具体的规则请放在数组更前面（先匹配先生效）。",
+    "agentLimits": "完成态优先用 Cursor Hooks（stop）推送；请求态仍可能靠 OCR（Needs attention 等）。没有官方 IDE Agent 查询接口，无法做到 100% 准确。"
   },
   "app": [
     {
@@ -637,32 +638,16 @@
         "id": "agent-permission",
         "motionGroup": "TapBody",
         "patterns": [
-          "allow",
-          "deny",
-          "approve",
-          "permission",
+          "needs attention",
+          "blocked by auto-review",
           "waiting for (your )?approval",
           "needs? your (approval|permission|confirmation)",
-          "run (this )?command",
+          "run this command",
           "terminal command",
+          "required[_ -]?permissions",
+          "request[_ -]?smart[_ -]?mode[_ -]?approval",
           "network access",
-          "mcp",
-          {
-            "pattern": "允许",
-            "flags": ""
-          },
-          {
-            "pattern": "拒绝",
-            "flags": ""
-          },
-          {
-            "pattern": "批准",
-            "flags": ""
-          },
-          {
-            "pattern": "权限",
-            "flags": ""
-          },
+          "full[_ -]?network",
           {
             "pattern": "需要你确认",
             "flags": ""
@@ -681,6 +666,14 @@
           },
           {
             "pattern": "请求访问",
+            "flags": ""
+          },
+          {
+            "pattern": "权限请求",
+            "flags": ""
+          },
+          {
+            "pattern": "需要批准",
             "flags": ""
           }
         ],
@@ -702,13 +695,10 @@
         "motionGroup": "Tap",
         "patterns": [
           "task (is )?complete",
+          "all done\\. you can close",
           "all done",
           "finished successfully",
           "completed successfully",
-          {
-            "pattern": "已完成",
-            "flags": ""
-          },
           {
             "pattern": "任务完成",
             "flags": ""
@@ -727,17 +717,17 @@
           }
         ],
         "speeches": [
-          "任务好像做完了，过来验收一下？",
-          "Agent 汇报完成！要不要看看结果。",
-          "搞定啦～可以回来看看。",
-          "完工铃响了，验收时间到。",
-          "它说做完了，你说了算。",
-          "成果出炉，我先替你高兴。",
-          "这一波结束，下一批随时来。",
-          "完成通知送达，请签收～"
+          "这一轮好像告一段落了，要不要回来看看？",
+          "对话停下来了，我喊你一声。",
+          "可以回来看看结果了～",
+          "先告一段落，休息一下也行。",
+          "这边安静下来了，你说了算下一步。",
+          "告一段落啦，验收或下一批都行。",
+          "我感觉这波结束了，过来瞄一眼？",
+          "忙完一轮了，记得眨眨眼。"
         ],
         "kind": "complete",
-        "notificationTitle": "Agent 任务完成"
+        "notificationTitle": "对话告一段落"
       }
     ]
   },

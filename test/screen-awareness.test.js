@@ -110,6 +110,16 @@ describe("screen-awareness rules", () => {
     assert.equal(permission?.id, "agent-permission");
     assert.equal(permission?.notify, true);
 
+    const needsAttention = matchAgentAlertReaction("Composer Needs attention", {
+      owner: { name: "Cursor" }
+    });
+    assert.equal(needsAttention?.id, "agent-permission");
+
+    const autoReview = matchAgentAlertReaction("Blocked by Auto-review", {
+      owner: { name: "Cursor" }
+    });
+    assert.equal(autoReview?.id, "agent-permission");
+
     const complete = matchAgentAlertReaction("Task complete — all done", {
       owner: { name: "Claude" }
     });
@@ -119,6 +129,20 @@ describe("screen-awareness rules", () => {
       matchAgentAlertReaction("Waiting for your approval", { owner: { name: "Safari" } }),
       null
     );
+
+    // Cursor 前台但 OCR 只有宽泛词（allow/mcp）时不应误报
+    assert.equal(
+      matchAgentAlertReaction("Click Allow to continue using MCP tools", {
+        owner: { name: "Cursor" }
+      }),
+      null
+    );
+
+    // 截到 Cursor 窗口时，即使前台不是 Cursor 也可提醒
+    const background = matchAgentAlertReaction("Needs attention", { owner: { name: "Safari" } }, {
+      agentContext: true
+    });
+    assert.equal(background?.id, "agent-permission");
 
     const merged = mergeReactions({
       agentReaction: permission,
@@ -296,7 +320,8 @@ describe("screen-awareness controller", () => {
         image: {},
         size: { width, height },
         bitmap,
-        dataUrl: "data:image/png;base64,xx"
+        dataUrl: "data:image/png;base64,xx",
+        sourceKind: "agent-window"
       }),
       recognizeText: async () => "Needs your approval to run this terminal command",
       getScreenAccessStatus: async () => "granted",
@@ -314,6 +339,55 @@ describe("screen-awareness controller", () => {
     await controller.start();
     assert.equal(reactions.at(-1)?.id, "agent-permission");
     assert.equal(controller.getStatus().agentAlertEnabled, true);
+    controller.stop();
+  });
+
+  it("emits agent alerts from Cursor window even when another app is focused", async () => {
+    const reactions = [];
+    const width = 4;
+    const height = 4;
+    const bitmap = Buffer.alloc(width * height * 4, 200);
+
+    const controller = createScreenAwarenessController({
+      getActiveWindow: async () => ({
+        title: "Inbox",
+        owner: { name: "Safari" }
+      }),
+      captureScreen: async ({ preferAgentWindow } = {}) => {
+        if (preferAgentWindow) {
+          return {
+            image: {},
+            size: { width, height },
+            bitmap,
+            dataUrl: "data:image/png;base64,xx",
+            sourceKind: "agent-window",
+            sourceName: "Cursor"
+          };
+        }
+
+        return {
+          image: {},
+          size: { width, height },
+          bitmap,
+          dataUrl: "data:image/png;base64,xx",
+          sourceKind: "screen"
+        };
+      },
+      recognizeText: async () => "Needs attention",
+      getScreenAccessStatus: async () => "granted",
+      onReaction: (reaction) => reactions.push(reaction),
+      intervalMs: 60_000,
+      agentIntervalMs: 60_000,
+      cooldownMs: 1,
+      agentCooldownMs: 1,
+      nowFn: () => Date.now(),
+      setIntervalFn: () => 1,
+      clearIntervalFn: () => {}
+    });
+
+    controller.setAgentAlertEnabled(true);
+    await controller.start();
+    assert.equal(reactions.at(-1)?.id, "agent-permission");
     controller.stop();
   });
 

@@ -51,7 +51,11 @@ body {
   position: absolute;
   left: 50%;
   top: 8px;
-  transform: translateX(-50%) rotate(-2deg);
+  transform: translate(
+      calc(-50% + var(--speech-dx, 0px)),
+      var(--speech-dy, 0px)
+    )
+    rotate(-2deg);
   padding: 6px 10px;
   font-size: 13px;
   max-width: min(220px, 90%);

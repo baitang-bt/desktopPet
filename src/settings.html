@@ -97,13 +97,24 @@
           <label class="setting-row">
             <span class="setting-text">
               <strong>Agent 提醒</strong>
-              <small>权限请求 / 任务完成</small>
+              <small>Hooks 完成优先；请求仍可能靠 OCR</small>
             </span>
             <span class="switch">
               <input id="agent-alert-enabled" type="checkbox" />
               <span class="switch-track" aria-hidden="true"></span>
             </span>
           </label>
+          <div class="setting-row setting-row--stack">
+            <span class="setting-text">
+              <strong>Cursor Hooks</strong>
+              <small id="cursor-hooks-status">未安装</small>
+            </span>
+            <div class="button-row">
+              <button class="secondary-button" id="install-cursor-hooks" type="button">
+                安装 Agent Hooks
+              </button>
+            </div>
+          </div>
 
           <h2 class="section-title">更新</h2>
           <div class="setting-row setting-row--stack">

@@ -2,19 +2,34 @@
 
 const {
   analyzeSceneFromBitmap,
+  buildAgentKindReaction,
   buildAppChangeReaction,
   buildSceneChangeReaction,
+  isAgentApplication,
   matchAgentAlertReaction,
   matchAppReaction,
   matchOcrReaction,
   mergeReactions
 } = require("./screen-awareness-rules");
+const { createAgentHookConsumer } = require("./agent-hook-status");
 
 const DEFAULT_INTERVAL_MS = 20_000;
 const DEFAULT_AGENT_INTERVAL_MS = 10_000;
 const DEFAULT_COOLDOWN_MS = 90_000;
 const DEFAULT_AGENT_COOLDOWN_MS = 45_000;
 const CAPTURE_MAX_WIDTH = 1280;
+const DEFAULT_AGENT_WINDOW_PATTERNS = [
+  /cursor/i,
+  /claude/i,
+  /chatgpt/i,
+  /openai/i,
+  /copilot/i,
+  /windsurf/i,
+  /trae/i,
+  /gemini/i,
+  /grok/i,
+  /codex/i
+];
 
 function createScreenAwarenessController({
   getActiveWindow,
@@ -29,12 +44,15 @@ function createScreenAwarenessController({
   agentCooldownMs = DEFAULT_AGENT_COOLDOWN_MS,
   setIntervalFn = setInterval,
   clearIntervalFn = clearInterval,
-  nowFn = () => Date.now()
+  nowFn = () => Date.now(),
+  agentHookConsumer = null,
+  watchAgentHookStatus = null
 }) {
   let enabled = false;
   let agentAlertEnabled = false;
   let running = false;
   let timer = null;
+  let hookWatcher = null;
   let tickInFlight = false;
   let lastReactionId = null;
   let lastReactionAt = 0;
@@ -43,6 +61,7 @@ function createScreenAwarenessController({
   let mode = "off";
   let previousActiveWindow = null;
   let previousVisionMetrics = null;
+  const hookConsumer = agentHookConsumer ?? createAgentHookConsumer();
 
   function currentIntervalMs() {
     return agentAlertEnabled ? agentIntervalMs : intervalMs;
@@ -145,7 +164,10 @@ function createScreenAwarenessController({
     }
 
     const now = nowFn();
-    const coolDown = reaction.source === "agent" ? agentCooldownMs : cooldownMs;
+    const coolDown =
+      reaction.source === "agent" || reaction.source === "agent-hook"
+        ? agentCooldownMs
+        : cooldownMs;
 
     if (reaction.id === lastReactionId && now - lastReactionAt < coolDown) {
       return false;
@@ -154,6 +176,48 @@ function createScreenAwarenessController({
     lastReactionId = reaction.id;
     lastReactionAt = now;
     return true;
+  }
+
+  function consumeHookReaction(timeOptions = {}) {
+    if (!agentAlertEnabled) {
+      return null;
+    }
+
+    const event = hookConsumer.consume();
+    if (!event) {
+      return null;
+    }
+
+    return buildAgentKindReaction(event.kind, {
+      ...timeOptions,
+      source: "hook"
+    });
+  }
+
+  function stopHookWatcher() {
+    if (typeof hookWatcher === "function") {
+      hookWatcher();
+      hookWatcher = null;
+    } else if (hookWatcher?.close) {
+      hookWatcher.close();
+      hookWatcher = null;
+    }
+  }
+
+  function startHookWatcher() {
+    stopHookWatcher();
+
+    if (!agentAlertEnabled || typeof watchAgentHookStatus !== "function") {
+      return;
+    }
+
+    hookWatcher = watchAgentHookStatus(hookConsumer.statusPath, () => {
+      if (!enabled || !running || !agentAlertEnabled) {
+        return;
+      }
+
+      void tick({ hookOnly: true });
+    });
   }
 
   async function runOcrAndVision(shot, timeOptions = {}) {
@@ -188,7 +252,7 @@ function createScreenAwarenessController({
     }, currentIntervalMs());
   }
 
-  async function tick() {
+  async function tick({ hookOnly = false } = {}) {
     if (!enabled || !running || tickInFlight) {
       return;
     }
@@ -197,6 +261,15 @@ function createScreenAwarenessController({
 
     try {
       const timeOptions = { now: new Date(nowFn()) };
+
+      if (hookOnly) {
+        const hookReaction = consumeHookReaction(timeOptions);
+        if (shouldEmit(hookReaction)) {
+          onReaction?.(hookReaction);
+        }
+        return;
+      }
+
       const activeWindow = (await getActiveWindow?.()) ?? null;
       const appReaction = matchAppReaction(activeWindow, timeOptions);
       const appChangeReaction = buildAppChangeReaction(
@@ -208,7 +281,7 @@ function createScreenAwarenessController({
       let ocrReaction = null;
       let visionReaction = null;
       let sceneChangeReaction = null;
-      let agentReaction = null;
+      let agentReaction = consumeHookReaction(timeOptions);
       let ocrText = "";
 
       if (canCapture || mode === "full" || mode === "app-only" || mode === "denied") {
@@ -218,7 +291,9 @@ function createScreenAwarenessController({
 
         if (canCapture) {
           try {
-            const shot = await captureScreen?.();
+            const shot = await captureScreen?.({
+              preferAgentWindow: agentAlertEnabled
+            });
             if (shot?.image) {
               const analyzed = await runOcrAndVision(shot, timeOptions);
               ocrReaction = analyzed.ocrReaction;
@@ -230,8 +305,12 @@ function createScreenAwarenessController({
                 timeOptions
               );
 
-              if (agentAlertEnabled) {
-                agentReaction = matchAgentAlertReaction(ocrText, activeWindow, timeOptions);
+              if (agentAlertEnabled && !agentReaction) {
+                agentReaction = matchAgentAlertReaction(ocrText, activeWindow, {
+                  ...timeOptions,
+                  agentContext:
+                    shot.sourceKind === "agent-window" || isAgentApplication(activeWindow)
+                });
               }
 
               lastError = null;
@@ -282,8 +361,10 @@ function createScreenAwarenessController({
     lastError = null;
     previousActiveWindow = null;
     previousVisionMetrics = null;
+    hookConsumer.reset();
     await refreshCaptureAccess();
     restartTimer();
+    startHookWatcher();
     emitStatus();
     await tick();
   }
@@ -297,6 +378,7 @@ function createScreenAwarenessController({
     previousActiveWindow = null;
     previousVisionMetrics = null;
     stopTimer();
+    stopHookWatcher();
     emitStatus();
   }
 
@@ -313,6 +395,7 @@ function createScreenAwarenessController({
 
     if (enabled && running) {
       restartTimer();
+      startHookWatcher();
     }
 
     emitStatus();
@@ -330,14 +413,44 @@ function createScreenAwarenessController({
   };
 }
 
-function createDefaultScreenCapture({ desktopCapturer, nativeImage }) {
-  return async function captureScreen() {
-    const sources = await desktopCapturer.getSources({
+function createDefaultScreenCapture({
+  desktopCapturer,
+  nativeImage,
+  agentWindowPatterns = DEFAULT_AGENT_WINDOW_PATTERNS
+}) {
+  async function pickSource({ preferAgentWindow = false } = {}) {
+    const thumbnailSize = { width: CAPTURE_MAX_WIDTH, height: CAPTURE_MAX_WIDTH };
+
+    if (preferAgentWindow) {
+      const windows = await desktopCapturer.getSources({
+        types: ["window"],
+        thumbnailSize
+      });
+
+      const agentWindow = windows.find((source) => {
+        if (!source?.thumbnail || source.thumbnail.isEmpty()) {
+          return false;
+        }
+
+        const name = String(source.name ?? "");
+        return agentWindowPatterns.some((pattern) => pattern.test(name));
+      });
+
+      if (agentWindow) {
+        return { source: agentWindow, sourceKind: "agent-window" };
+      }
+    }
+
+    const screens = await desktopCapturer.getSources({
       types: ["screen"],
-      thumbnailSize: { width: CAPTURE_MAX_WIDTH, height: CAPTURE_MAX_WIDTH }
+      thumbnailSize
     });
 
-    const source = sources[0];
+    return { source: screens[0] ?? null, sourceKind: "screen" };
+  }
+
+  return async function captureScreen(options = {}) {
+    const { source, sourceKind } = await pickSource(options);
 
     if (!source?.thumbnail || source.thumbnail.isEmpty()) {
       return null;
@@ -358,7 +471,9 @@ function createDefaultScreenCapture({ desktopCapturer, nativeImage }) {
       image,
       size: image.getSize(),
       bitmap: image.toBitmap(),
-      dataUrl: image.toDataURL()
+      dataUrl: image.toDataURL(),
+      sourceKind,
+      sourceName: source.name ?? ""
     };
   };
 }
@@ -391,6 +506,7 @@ module.exports = {
   CAPTURE_MAX_WIDTH,
   DEFAULT_AGENT_COOLDOWN_MS,
   DEFAULT_AGENT_INTERVAL_MS,
+  DEFAULT_AGENT_WINDOW_PATTERNS,
   DEFAULT_COOLDOWN_MS,
   DEFAULT_INTERVAL_MS,
   createDefaultScreenCapture,

@@ -33,6 +33,12 @@ const {
   createTesseractRecognizer
 } = require("./screen-awareness-controller");
 const {
+  createAgentHookConsumer,
+  getCursorHooksInstallInfo,
+  installCursorAgentHooks
+} = require("./agent-hook-status");
+const fs = require("node:fs");
+const {
   DEFAULT_PET_SCALE,
   clampPetXByCenterAxis,
   getPetCenterAxisXLimits,
@@ -1116,6 +1122,40 @@ function resetDialogueOverlay() {
   return { ok: true, ...info };
 }
 
+function createAgentHookWatcher(statusPath, onChange) {
+  const dir = path.dirname(statusPath);
+  const base = path.basename(statusPath);
+  let timer = null;
+
+  const schedule = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => onChange?.(), 80);
+  };
+
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+  } catch {
+    // ignore
+  }
+
+  try {
+    const watcher = fs.watch(dir, (_eventType, filename) => {
+      if (!filename || filename === base) {
+        schedule();
+      }
+    });
+
+    return () => {
+      clearTimeout(timer);
+      watcher.close();
+    };
+  } catch {
+    return () => {
+      clearTimeout(timer);
+    };
+  }
+}
+
 function createScreenAwareness() {
   let recognizeText = null;
 
@@ -1142,7 +1182,15 @@ function createScreenAwareness() {
       }
     },
     onReaction: sendPetReaction,
-    onStatusChange: broadcastScreenAwarenessStatus
+    onStatusChange: broadcastScreenAwarenessStatus,
+    agentHookConsumer: createAgentHookConsumer(),
+    watchAgentHookStatus: createAgentHookWatcher
+  });
+}
+
+function installDesktopPetCursorHooks() {
+  return installCursorAgentHooks({
+    appPath: app.getAppPath()
   });
 }
 
@@ -1368,6 +1416,18 @@ ipcMain.handle("settings:get", () => stateStore.getSettings());
 ipcMain.handle("update:get-status", () => appUpdater?.getStatus() ?? null);
 ipcMain.handle("update:check", () => appUpdater?.checkForUpdates());
 ipcMain.handle("update:download-or-install", () => appUpdater?.downloadOrInstall());
+ipcMain.handle("pet:get-speech-layout", () => {
+  if (!petWindow || petWindow.isDestroyed()) {
+    return null;
+  }
+
+  const bounds = petWindow.getBounds();
+  const display = screen.getDisplayMatching(bounds);
+  return {
+    bounds,
+    workArea: display?.workArea ?? screen.getPrimaryDisplay().workArea
+  };
+});
 ipcMain.handle("screen-awareness:get-status", () => screenAwarenessController?.getStatus() ?? {
   enabled: false,
   running: false,
@@ -1375,6 +1435,8 @@ ipcMain.handle("screen-awareness:get-status", () => screenAwarenessController?.g
   canCapture: false,
   message: "已关闭"
 });
+ipcMain.handle("cursor-hooks:get-info", () => getCursorHooksInstallInfo());
+ipcMain.handle("cursor-hooks:install", () => installDesktopPetCursorHooks());
 ipcMain.handle("dialogue:get-info", () => getDialogueInfo());
 ipcMain.handle("dialogue:import", () => importDialogueOverlay());
 ipcMain.handle("dialogue:reveal", (_event, target) => revealDialoguePath(target));
@@ -1416,6 +1478,17 @@ ipcMain.handle("settings:update", (_event, changes) => {
     Object.prototype.hasOwnProperty.call(changes, "screenAwarenessEnabled") ||
     Object.prototype.hasOwnProperty.call(changes, "agentAlertEnabled")
   ) {
+    if (settings.agentAlertEnabled) {
+      const info = getCursorHooksInstallInfo();
+      if (!info.installed) {
+        try {
+          installDesktopPetCursorHooks();
+        } catch (error) {
+          console.error("[cursor-hooks] install failed:", error);
+        }
+      }
+    }
+
     syncScreenAwarenessFromSettings(settings);
   }
 

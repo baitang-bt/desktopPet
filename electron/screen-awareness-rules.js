@@ -276,7 +276,10 @@ function isAgentApplication(activeWindow) {
 }
 
 function matchAgentAlertReaction(ocrText, activeWindow, options = {}) {
-  if (!isAgentApplication(activeWindow)) {
+  const inAgentContext =
+    options.agentContext === true || isAgentApplication(activeWindow);
+
+  if (!inAgentContext) {
     return null;
   }
 
@@ -308,6 +311,30 @@ function matchAgentAlertReaction(ocrText, activeWindow, options = {}) {
   }
 
   return null;
+}
+
+function buildAgentKindReaction(kind, options = {}) {
+  const wanted = String(kind ?? "");
+  if (!wanted) {
+    return null;
+  }
+
+  const context = buildContext(options);
+  const rule = AGENT_ALERT_RULES.find((entry) => entry.kind === wanted);
+
+  if (!rule || !matchesWhen(rule.when, context)) {
+    return null;
+  }
+
+  return {
+    id: rule.id,
+    source: options.source === "hook" ? "agent-hook" : "agent",
+    kind: rule.kind,
+    speech: pickSpeechForEntry(rule, context),
+    motionGroup: rule.motionGroup,
+    notificationTitle: rule.notificationTitle,
+    notify: true
+  };
 }
 
 function matchRules(haystack, rules, options = {}) {
@@ -588,6 +615,7 @@ module.exports = {
   activeWindowKey,
   analyzeSceneFromBitmap,
   applyDialogueCatalog,
+  buildAgentKindReaction,
   buildAppChangeReaction,
   buildContext,
   buildSceneChangeReaction,
