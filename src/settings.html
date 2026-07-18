@@ -12,35 +12,19 @@
   </head>
   <body>
     <main class="settings-menu" aria-label="桌宠设置">
-      <header class="settings-header">
-        <div class="settings-title">
-          <p class="settings-kicker">DESKTOP PET</p>
-          <h1>设置</h1>
-        </div>
-        <button class="icon-button" id="close-settings" type="button" aria-label="关闭设置">×</button>
-      </header>
-
       <nav class="settings-tabs" aria-label="设置分类">
         <button class="tab-button is-active" type="button" data-tab="general">常规</button>
         <button class="tab-button" type="button" data-tab="appearance">外观</button>
+        <button class="tab-button" type="button" data-tab="dialogue">词库</button>
       </nav>
 
       <div class="settings-content">
         <section class="settings-panel is-active" data-panel="general">
-          <label class="setting-row">
-            <span class="setting-text">
-              <strong>始终置顶</strong>
-              <small>让桌宠保持在其他窗口上方</small>
-            </span>
-            <span class="switch">
-              <input id="always-on-top" type="checkbox" />
-              <span class="switch-track" aria-hidden="true"></span>
-            </span>
-          </label>
+          <h2 class="section-title">行为</h2>
           <label class="setting-row">
             <span class="setting-text">
               <strong>角色动画</strong>
-              <small>播放待机、眨眼与视线动画</small>
+              <small>待机、眨眼与视线</small>
             </span>
             <span class="switch">
               <input id="animations-enabled" type="checkbox" />
@@ -49,20 +33,42 @@
           </label>
           <label class="setting-row">
             <span class="setting-text">
-              <strong>开机自启动</strong>
-              <small>登录系统后自动启动桌宠</small>
+              <strong>重力下落</strong>
+              <small>松手后落到地面或窗顶</small>
+            </span>
+            <span class="switch">
+              <input id="gravity-enabled" type="checkbox" />
+              <span class="switch-track" aria-hidden="true"></span>
+            </span>
+          </label>
+
+          <h2 class="section-title">窗口</h2>
+          <label class="setting-row">
+            <span class="setting-text">
+              <strong>始终置顶</strong>
+              <small>保持在其他窗口上方</small>
+            </span>
+            <span class="switch">
+              <input id="always-on-top" type="checkbox" />
+              <span class="switch-track" aria-hidden="true"></span>
+            </span>
+          </label>
+          <label class="setting-row">
+            <span class="setting-text">
+              <strong>开机自启</strong>
+              <small>登录后自动启动</small>
             </span>
             <span class="switch">
               <input id="launch-at-login" type="checkbox" />
               <span class="switch-track" aria-hidden="true"></span>
             </span>
           </label>
-          <label class="setting-row setting-row--stacked" for="idle-timeout">
+          <label class="setting-row" for="idle-timeout">
             <span class="setting-text">
-              <strong>低耗能模式</strong>
-              <small>无操作超过设定时间后隐藏桌宠以节省资源</small>
+              <strong>低耗能</strong>
+              <small>闲置后隐藏</small>
             </span>
-            <select id="idle-timeout">
+            <select id="idle-timeout" class="setting-control">
               <option value="30">30 秒</option>
               <option value="60">60 秒</option>
               <option value="300">5 分钟</option>
@@ -70,45 +76,101 @@
               <option value="1800">30 分钟</option>
               <option value="3600">60 分钟</option>
               <option value="7200">120 分钟</option>
-              <option value="0">不使用</option>
+              <option value="0">关闭</option>
             </select>
           </label>
-          <div class="setting-row setting-row--stacked">
+
+          <h2 class="section-title">屏幕感知</h2>
+          <p class="section-hint">
+            开启后本机截屏识别应用与画面，不上传、不落盘。
+          </p>
+          <label class="setting-row">
+            <span class="setting-text">
+              <strong>启用感知</strong>
+              <small id="screen-awareness-status">已关闭</small>
+            </span>
+            <span class="switch">
+              <input id="screen-awareness-enabled" type="checkbox" />
+              <span class="switch-track" aria-hidden="true"></span>
+            </span>
+          </label>
+          <label class="setting-row">
+            <span class="setting-text">
+              <strong>Agent 提醒</strong>
+              <small>权限请求 / 任务完成</small>
+            </span>
+            <span class="switch">
+              <input id="agent-alert-enabled" type="checkbox" />
+              <span class="switch-track" aria-hidden="true"></span>
+            </span>
+          </label>
+
+          <h2 class="section-title">更新</h2>
+          <div class="setting-row setting-row--stack">
             <span class="setting-text setting-text--split">
-              <strong>应用更新</strong>
+              <strong>版本</strong>
               <output id="app-version"></output>
             </span>
             <p class="update-status" id="update-status">点击检查更新</p>
             <div class="button-row">
               <button class="secondary-button" id="check-update" type="button">检查更新</button>
-              <button class="primary-button" id="install-update" type="button" disabled>更新</button>
+              <button class="primary-button" id="install-update" type="button" disabled>安装更新</button>
             </div>
           </div>
-          <button class="secondary-button" id="reset-settings" type="button">恢复默认设置</button>
         </section>
 
         <section class="settings-panel" data-panel="appearance">
-          <label class="setting-row setting-row--stacked" for="pet-model">
+          <h2 class="section-title">角色</h2>
+          <label class="setting-row setting-row--stack" for="pet-model">
             <span class="setting-text">
-              <strong>Live2D 角色</strong>
-              <small>切换当前显示的角色模型</small>
+              <strong>Live2D 模型</strong>
             </span>
             <select id="pet-model"></select>
           </label>
-          <div class="setting-row setting-row--stacked">
+          <div class="button-row">
+            <button class="primary-button" id="import-live2d" type="button">导入模型目录</button>
+            <button class="secondary-button" id="remove-live2d" type="button" disabled>
+              删除导入
+            </button>
+          </div>
+          <div class="button-row">
+            <button class="secondary-button" id="reveal-live2d-dir" type="button">打开模型目录</button>
+          </div>
+          <p class="update-status" id="live2d-import-status">可选择含 .model3.json 的文件夹导入</p>
+          <div class="setting-row setting-row--stack">
             <span class="setting-text setting-text--split">
-              <strong>桌宠大小</strong>
+              <strong>显示大小</strong>
               <output id="pet-size-value" for="pet-size"></output>
             </span>
             <input id="pet-size" type="range" min="0.3" max="3" step="0.05" />
           </div>
-          <p class="setting-note">设置和窗口位置会自动保存在当前电脑中。</p>
+          <p class="section-hint">内置模型在 assets/live2d/builtin；导入模型保存在本机用户目录。</p>
+        </section>
+
+        <section class="settings-panel" data-panel="dialogue">
+          <h2 class="section-title">对话词库</h2>
+          <p class="section-hint">导入的 JSON 会与内置词库合并；可用其他 AI 生成台词文件。</p>
+          <p class="path-display" id="dialogue-builtin-path" title="">内置路径加载中…</p>
+          <p class="path-display" id="dialogue-overlay-path" title="">扩展：未导入</p>
+          <p class="update-status" id="dialogue-status">使用内置词库</p>
+          <div class="button-row">
+            <button class="secondary-button" id="reveal-dialogue-builtin" type="button">
+              浏览内置
+            </button>
+            <button class="secondary-button" id="reveal-dialogue-dir" type="button">打开目录</button>
+          </div>
+          <div class="button-row">
+            <button class="primary-button" id="import-dialogue" type="button">导入 JSON</button>
+            <button class="secondary-button" id="reset-dialogue" type="button">清除扩展</button>
+          </div>
         </section>
       </div>
 
       <footer class="settings-footer">
-        <p class="drag-hint">拖动标题栏移动 · 右键桌宠开关本窗口</p>
-        <button class="danger-button" id="quit-app" type="button">关闭应用</button>
+        <div class="button-row">
+          <button class="secondary-button" id="reset-settings" type="button">恢复默认</button>
+          <button class="danger-button" id="quit-app" type="button">退出应用</button>
+        </div>
       </footer>
     </main>
     <script src="./settings.js"></script>

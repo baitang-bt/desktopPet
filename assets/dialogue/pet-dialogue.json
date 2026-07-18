@@ -1,0 +1,916 @@
+{
+  "version": 1,
+  "_guide": {
+    "purpose": "桌宠情景对话词库。可用其他 AI 增删 speeches / variants，并扩展 when 条件。",
+    "fields": {
+      "patterns": "字符串默认忽略大小写；或 { pattern, flags }。匹配应用名+窗口标题，或 OCR 文本。",
+      "when": {
+        "timeOfDay": "morning(5-11) | noon(11-14) | afternoon(14-18) | evening(18-22) | night(22-5)",
+        "hours": "0-23 的小时列表",
+        "hourRanges": "[[start,end],...]，可跨午夜如 [22,5]",
+        "weekdays": "0=周日 … 6=周六",
+        "weekend": "true 表示周六日",
+        "weekday": "true 表示周一到周五",
+        "months": "1-12"
+      },
+      "variants": "同情景下按 when 优先选用的台词组；都不匹配则用 speeches",
+      "placeholders": "change.appNamed 可用 {name} 插入应用名"
+    },
+    "tip": "更具体的规则请放在数组更前面（先匹配先生效）。"
+  },
+  "app": [
+    {
+      "id": "app-game-weekend",
+      "motionGroup": "Tap",
+      "patterns": [
+        "steam",
+        "game",
+        "unity",
+        "godot",
+        "epic games",
+        "minecraft"
+      ],
+      "when": {
+        "weekend": true
+      },
+      "speeches": [
+        "周末开黑？适度快乐最持久。",
+        "假日副本启动，记得站起来走走。",
+        "周末游戏时光，我当你的啦啦队。",
+        "赢了很帅，输了也很可爱。",
+        "假期 buff：快乐 +1，熬夜 -1。",
+        "打完这把就伸个懒腰，成交？"
+      ]
+    },
+    {
+      "id": "app-focus",
+      "motionGroup": "Idle",
+      "patterns": [
+        "cursor",
+        "code",
+        "visual studio",
+        "intellij",
+        "webstorm",
+        "xcode",
+        "terminal",
+        "iterm",
+        "warp",
+        "sublime",
+        "neovim",
+        "vim"
+      ],
+      "speeches": [
+        "看起来在认真干活呢，我陪你。",
+        "编码模式启动～别忘了喝水。",
+        "专注加油！卡住了可以拍拍我。",
+        "敲敲打打的声音真安心。",
+        "思路顺的话，我就不打扰啦。",
+        "调试也是战斗，我当你的后勤。",
+        "保存一下？我怕你忘。",
+        "深度工作中，我负责卖萌待机。"
+      ],
+      "variants": [
+        {
+          "when": {
+            "timeOfDay": [
+              "night"
+            ]
+          },
+          "speeches": [
+            "这么晚还在码？眼睛先下班一会儿。",
+            "夜深了，保存一下再继续？",
+            "深夜调试勇士…水也记得喝。",
+            "月亮都困了，你呢？",
+            "夜里思路清晰是好事，别透支明天。",
+            "宵夜代码香，颈椎抗议中。"
+          ]
+        },
+        {
+          "when": {
+            "timeOfDay": [
+              "morning"
+            ]
+          },
+          "speeches": [
+            "早啊，今天的第一个函数写好了吗？",
+            "清晨代码最干净，冲一波。",
+            "早上好，我当你的开机动画。",
+            "晨间专注 buff 已加载。",
+            "新的一天，从通过编译开始。",
+            "早起码农，我陪你热身。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "app-browse-late",
+      "motionGroup": "Tap",
+      "patterns": [
+        "chrome",
+        "safari",
+        "firefox",
+        "edge",
+        "arc",
+        "brave",
+        "vivaldi"
+      ],
+      "when": {
+        "timeOfDay": [
+          "night"
+        ]
+      },
+      "speeches": [
+        "深夜还在冲浪？小心推荐算法绑架睡眠。",
+        "夜深了，标签页可以先存起来。",
+        "月亮都困了，网页还亮着。",
+        "再看一条就睡？我帮你倒数。",
+        "夜间浏览器模式：亮度也温柔点。",
+        "刷到现在，眼皮在抗议了。"
+      ]
+    },
+    {
+      "id": "app-browse",
+      "motionGroup": "Tap",
+      "patterns": [
+        "chrome",
+        "safari",
+        "firefox",
+        "edge",
+        "arc",
+        "brave",
+        "vivaldi"
+      ],
+      "speeches": [
+        "在逛网页吗？发现好玩的记得跟我说。",
+        "冲浪中～小心掉进推荐漩涡。",
+        "浏览器开着，世界就在指尖。",
+        "标签页是不是又开太多了？",
+        "看到有趣的再收藏，别全塞进稍后读。",
+        "网页一页接一页，记得眨眨眼。",
+        "搜索框闪闪发光，灵感要来了？",
+        "今天也是信息猎人呢。"
+      ],
+      "variants": [
+        {
+          "when": {
+            "timeOfDay": [
+              "noon"
+            ]
+          },
+          "speeches": [
+            "午饭点到了？网页可以先放一放。",
+            "中午刷信息也行，胃更重要。",
+            "午间冲浪，记得真去吃饭。",
+            "推荐流很香，饭更香。",
+            "歇一歇眼睛，吃点东西。",
+            "正午阳光正好，人也该补充能量。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "app-meeting",
+      "motionGroup": "Idle",
+      "patterns": [
+        "zoom",
+        "meet",
+        "teams",
+        "webex",
+        "facetime",
+        "腾讯会议",
+        "钉钉",
+        "飞书",
+        "lark"
+      ],
+      "speeches": [
+        "开会中…我先安静待着。",
+        "会议模式：我变成小背景板。",
+        "加油发言，我帮你守着桌面。",
+        "记得看有没有静音～",
+        "会议久了，肩颈也要动一动。",
+        "我在角落当气氛组吉祥物。",
+        "要点记下来了吗？我帮你看着屏幕。",
+        "开完会记得伸个懒腰。"
+      ]
+    },
+    {
+      "id": "app-chat",
+      "motionGroup": "TapBody",
+      "patterns": [
+        "slack",
+        "discord",
+        "telegram",
+        "微信",
+        "wechat",
+        "qq(?!\\s*音乐)",
+        "messages",
+        "mail",
+        "sparrow",
+        "outlook"
+      ],
+      "speeches": [
+        "聊天中？记得也留点时间给自己。",
+        "消息叮咚，我在旁边看着。",
+        "回消息也别太久，眨眨眼～",
+        "社交通讯进行中，我先不插话。",
+        "一句一句回，别把自己聊干了。",
+        "红点清掉会很爽，对吧？",
+        "有事说事，没事摸我头也行。",
+        "消息海航行中，注意别翻船。"
+      ]
+    },
+    {
+      "id": "app-music",
+      "motionGroup": "TapBody",
+      "patterns": [
+        "spotify",
+        "music",
+        "itunes",
+        "网易云",
+        "qq音乐",
+        "youtube music",
+        "apple music",
+        "foobar"
+      ],
+      "speeches": [
+        "这首歌不错，耳朵也要休息哦。",
+        "有 BGM 的桌面更有气氛。",
+        "跟着节奏摇一摇～",
+        "旋律起来了，心情也轻一点。",
+        "单曲循环也没关系，我陪着听。",
+        "音量别太大，邻居和耳膜都谢谢你。",
+        "下一首是惊喜还是安利？",
+        "音乐一响，生产力 +1（大概）。"
+      ]
+    },
+    {
+      "id": "app-design",
+      "motionGroup": "Tap",
+      "patterns": [
+        "figma",
+        "sketch",
+        "photoshop",
+        "illustrator",
+        "affinity",
+        "canva",
+        "blender"
+      ],
+      "speeches": [
+        "设计时间到，像素对齐了吗？",
+        "画布亮起来了，灵感冲冲冲。",
+        "好看！再微调一点点？",
+        "配色和谐的人运气也不会差。",
+        "图层叠叠乐？记得命名哦。",
+        "留白也是一种力量。",
+        "导出前再瞄一眼细节～",
+        "创作中，我当你的小小评审团。"
+      ]
+    },
+    {
+      "id": "app-docs",
+      "motionGroup": "Idle",
+      "patterns": [
+        "notion",
+        "obsidian",
+        "bear",
+        "notes",
+        "word",
+        "pages",
+        "excel",
+        "numbers",
+        "keynote",
+        "powerpoint",
+        "typora"
+      ],
+      "speeches": [
+        "文档模式，条理清晰最重要。",
+        "写写记记，我帮你盯着进度。",
+        "Notion/备忘录战士出现！",
+        "字写清楚了，思路也会更清楚。",
+        "段落之间喘口气，别一口气堆完。",
+        "标题层级整理好了吗？",
+        "记下来就不容易忘，我作证。",
+        "文档越写越长，记得存档。"
+      ]
+    },
+    {
+      "id": "app-finder",
+      "motionGroup": "Tap",
+      "patterns": [
+        "finder",
+        "explorer",
+        "files$"
+      ],
+      "speeches": [
+        "在翻文件吗？别把自己也翻丢了。",
+        "桌面整理中？整洁的人运气不会差。",
+        "访达探险家出发～",
+        "文件夹迷宫挑战开始了。",
+        "下载目录是不是又堆成山了？",
+        "找到了就收好，找不到就问我……我也只能加油。",
+        "整理一次，心情清爽一整天。",
+        "文件猎人出没，注意别拖错盘。"
+      ]
+    },
+    {
+      "id": "app-game",
+      "motionGroup": "Tap",
+      "patterns": [
+        "steam",
+        "game",
+        "unity",
+        "godot",
+        "epic games",
+        "minecraft"
+      ],
+      "speeches": [
+        "玩游戏也别太久，眨眨眼～",
+        "开战！记得定时站起来活动。",
+        "胜利在望，我给你加油。",
+        "输了也没关系，重开就是新生。",
+        "Boss 战前先喝口水。",
+        "快乐很重要，颈椎也很重要。",
+        "我在旁观席给你喊 666。",
+        "下一关见，记得存档。"
+      ]
+    },
+    {
+      "id": "app-ai",
+      "motionGroup": "TapBody",
+      "patterns": [
+        "chatgpt",
+        "claude",
+        "gemini",
+        "copilot",
+        "ollama",
+        "grok"
+      ],
+      "speeches": [
+        "又在问 AI？那我也算半个同事吧。",
+        "提示词写好了吗，我旁听学习。",
+        "人机协作进行中～",
+        "问清楚一点，答案会更乖。",
+        "AI 再聪明，拍板的还是你。",
+        "生成中…我先帮你盯着进度。",
+        "多轮对话也别把自己聊晕了。",
+        "模型在想，我在陪。"
+      ]
+    }
+  ],
+  "ocr": [
+    {
+      "id": "ocr-error",
+      "motionGroup": "TapBody",
+      "patterns": [
+        "error",
+        "exception",
+        "failed",
+        {
+          "pattern": "失败",
+          "flags": ""
+        },
+        {
+          "pattern": "错误",
+          "flags": ""
+        },
+        {
+          "pattern": "报错",
+          "flags": ""
+        },
+        "traceback",
+        "panic",
+        "segfault"
+      ],
+      "speeches": [
+        "好像出了点岔子…慢慢来，我在。",
+        "报错不可怕，可怕的是不喝水。",
+        "Error 出现了，深呼吸再看一眼。",
+        "红字只是提醒，不是终点。",
+        "堆栈很长？先从最上面读。",
+        "我陪你一起盯着错误信息。",
+        "修好一个 bug，心情会亮一点。",
+        "失败是调试的预告片。"
+      ]
+    },
+    {
+      "id": "ocr-deadline",
+      "motionGroup": "Idle",
+      "patterns": [
+        "deadline",
+        "due\\s*date",
+        {
+          "pattern": "截止",
+          "flags": ""
+        },
+        {
+          "pattern": "到期",
+          "flags": ""
+        },
+        "ddl",
+        "asap"
+      ],
+      "speeches": [
+        "截止日？深呼吸，一件一件来。",
+        "DDL 警告灯亮了，我帮你盯着。",
+        "时间紧，但别急到翻车。",
+        "先做最关键的那一件。",
+        "倒计时响了，节奏比焦虑重要。",
+        "我当你的小番茄计时器吉祥物。",
+        "忙也可以有序，我信你。",
+        "Deadline 近了，喝水也近了。"
+      ]
+    },
+    {
+      "id": "ocr-success",
+      "motionGroup": "Tap",
+      "patterns": [
+        "success",
+        "passed",
+        {
+          "pattern": "恭喜",
+          "flags": ""
+        },
+        {
+          "pattern": "成功",
+          "flags": ""
+        },
+        {
+          "pattern": "完成",
+          "flags": ""
+        },
+        "deployed",
+        "merged",
+        "approved"
+      ],
+      "speeches": [
+        "看起来顺利！给你比个心。",
+        "成功了！小小庆祝一下～",
+        "Passed！今晚加鸡腿。",
+        "绿勾出现的瞬间最可爱。",
+        "搞定！肩膀可以松一点了。",
+        "胜利短暂停顿，然后继续冲。",
+        "漂亮，这一步迈得很稳。",
+        "成果到手，我先替你开心。"
+      ]
+    },
+    {
+      "id": "ocr-warning",
+      "motionGroup": "TapBody",
+      "patterns": [
+        "warning",
+        "warn\\b",
+        {
+          "pattern": "警告",
+          "flags": ""
+        },
+        {
+          "pattern": "注意",
+          "flags": ""
+        },
+        "caution"
+      ],
+      "speeches": [
+        "有警告呢，要不要先看一眼？",
+        "Warning 在闪，别装作没看见。",
+        "小提示出现了，也许很关键。",
+        "黄色不一定严重，但值得瞄一眼。",
+        "提前处理警告，后面更轻松。",
+        "我帮你标个小旗子：注意注意。",
+        "警告像天气预报，早看早安心。",
+        "先读完再关掉，好不好？"
+      ]
+    },
+    {
+      "id": "ocr-loading",
+      "motionGroup": "Idle",
+      "patterns": [
+        "loading",
+        {
+          "pattern": "请稍候",
+          "flags": ""
+        },
+        {
+          "pattern": "加载中",
+          "flags": ""
+        },
+        "waiting",
+        "buffering",
+        {
+          "pattern": "正在处理",
+          "flags": ""
+        }
+      ],
+      "speeches": [
+        "加载中…我们一起等等看。",
+        "转圈圈的时候最适合伸懒腰。",
+        "还在缓冲，喝口水？",
+        "进度条在爬，我在陪。",
+        "等待也是节奏的一部分。",
+        "别狂点，它听见了（大概）。",
+        "转一会儿就好，耐心是 buff。",
+        "加载越久，期待越满？先放松。"
+      ]
+    },
+    {
+      "id": "ocr-network",
+      "motionGroup": "TapBody",
+      "patterns": [
+        "offline",
+        "timed?\\s*out",
+        "network",
+        {
+          "pattern": "无法连接",
+          "flags": ""
+        },
+        {
+          "pattern": "无网络",
+          "flags": ""
+        },
+        "wifi",
+        "dns",
+        {
+          "pattern": "404",
+          "flags": ""
+        },
+        {
+          "pattern": "502",
+          "flags": ""
+        },
+        {
+          "pattern": "503",
+          "flags": ""
+        }
+      ],
+      "speeches": [
+        "网络好像不太听话…",
+        "断线重连的艺术，我懂。",
+        "Wi‑Fi 情绪不稳定？",
+        "信号在躲猫猫，再试一次？",
+        "离线也没关系，先缓口气。",
+        "网一卡，心别跟着卡。",
+        "404 只是迷路，不是告别。",
+        "连不上时，我陪你干等也行。"
+      ]
+    },
+    {
+      "id": "ocr-meeting",
+      "motionGroup": "Idle",
+      "patterns": [
+        "mute",
+        "unmute",
+        "share screen",
+        {
+          "pattern": "共享屏幕",
+          "flags": ""
+        },
+        {
+          "pattern": "录制中",
+          "flags": ""
+        },
+        "recording",
+        {
+          "pattern": "参会",
+          "flags": ""
+        }
+      ],
+      "speeches": [
+        "屏幕上在开会？我小声点。",
+        "会议字幕闪过，我先闭嘴。",
+        "看到「静音」记得别踩雷。",
+        "共享屏幕时，桌面也要体面。",
+        "录制中？言行都温柔一点。",
+        "会议提示出现了，我退居二线。",
+        "参会模式：安静贴边。",
+        "开完记得关掉摄像头～"
+      ]
+    },
+    {
+      "id": "ocr-security",
+      "motionGroup": "Idle",
+      "patterns": [
+        "password",
+        {
+          "pattern": "密码",
+          "flags": ""
+        },
+        {
+          "pattern": "验证码",
+          "flags": ""
+        },
+        "captcha",
+        "2fa",
+        "authentication",
+        {
+          "pattern": "登录",
+          "flags": ""
+        }
+      ],
+      "speeches": [
+        "要输入密码？我把头转过去。",
+        "安全提示出现了，谨慎一点。",
+        "验证码闪过，我当作没看见。",
+        "登录页面到了，专心输入就好。",
+        "二步验证？安全第一。",
+        "敏感信息出现时，我自动隐身。",
+        "认证通过前，我先不说话。",
+        "门锁亮了，钥匙拿稳。"
+      ]
+    }
+  ],
+  "agent": {
+    "appPatterns": [
+      "cursor",
+      "claude",
+      "chatgpt",
+      "openai",
+      "copilot",
+      "windsurf",
+      "trae",
+      "devin",
+      "aider",
+      "codex",
+      "gemini",
+      "grok"
+    ],
+    "alerts": [
+      {
+        "id": "agent-permission",
+        "motionGroup": "TapBody",
+        "patterns": [
+          "allow",
+          "deny",
+          "approve",
+          "permission",
+          "waiting for (your )?approval",
+          "needs? your (approval|permission|confirmation)",
+          "run (this )?command",
+          "terminal command",
+          "network access",
+          "mcp",
+          {
+            "pattern": "允许",
+            "flags": ""
+          },
+          {
+            "pattern": "拒绝",
+            "flags": ""
+          },
+          {
+            "pattern": "批准",
+            "flags": ""
+          },
+          {
+            "pattern": "权限",
+            "flags": ""
+          },
+          {
+            "pattern": "需要你确认",
+            "flags": ""
+          },
+          {
+            "pattern": "等待确认",
+            "flags": ""
+          },
+          {
+            "pattern": "等待批准",
+            "flags": ""
+          },
+          {
+            "pattern": "是否允许",
+            "flags": ""
+          },
+          {
+            "pattern": "请求访问",
+            "flags": ""
+          }
+        ],
+        "speeches": [
+          "Agent 在等你批权限，快看一眼～",
+          "有权限请求！Cursor/Claude 卡住了可能就是这个。",
+          "要允许才能继续哦，我帮你盯着。",
+          "批准还是拒绝？决定权在你。",
+          "权限弹窗在等你，别让它干等。",
+          "命令想跑起来，先过你这关。",
+          "安全确认到了，我喊你一声。",
+          "Agent 举手提问：可以继续吗？"
+        ],
+        "kind": "permission",
+        "notificationTitle": "Agent 权限请求"
+      },
+      {
+        "id": "agent-complete",
+        "motionGroup": "Tap",
+        "patterns": [
+          "task (is )?complete",
+          "all done",
+          "finished successfully",
+          "completed successfully",
+          {
+            "pattern": "已完成",
+            "flags": ""
+          },
+          {
+            "pattern": "任务完成",
+            "flags": ""
+          },
+          {
+            "pattern": "全部完成",
+            "flags": ""
+          },
+          {
+            "pattern": "处理完成",
+            "flags": ""
+          },
+          {
+            "pattern": "执行完毕",
+            "flags": ""
+          }
+        ],
+        "speeches": [
+          "任务好像做完了，过来验收一下？",
+          "Agent 汇报完成！要不要看看结果。",
+          "搞定啦～可以回来看看。",
+          "完工铃响了，验收时间到。",
+          "它说做完了，你说了算。",
+          "成果出炉，我先替你高兴。",
+          "这一波结束，下一批随时来。",
+          "完成通知送达，请签收～"
+        ],
+        "kind": "complete",
+        "notificationTitle": "Agent 任务完成"
+      }
+    ]
+  },
+  "change": {
+    "app": [
+      "咦，桌面主角换人了。",
+      "切换应用了？我跟上你的节奏。",
+      "换了个窗口，气氛都不一样了。",
+      "新舞台亮相～我重新站好。",
+      "焦点搬家了，我也挪挪位置。",
+      "下一个任务开始了吗？",
+      "窗口一换，故事换章。",
+      "我看到你换频道了。"
+    ],
+    "appNamed": [
+      "切到「{name}」了，我看着呢。",
+      "「{name}」上场，我把位置让开一点。",
+      "现在是「{name}」时间，加油。",
+      "跟你一起进「{name}」。",
+      "「{name}」亮了，气氛切换完成。",
+      "主角变成「{name}」啦。",
+      "收到，「{name}」已就位。",
+      "从这边望过去，「{name}」最显眼。"
+    ],
+    "scene": [
+      "咦，桌面气氛变了？",
+      "画面一下子不一样了呢。",
+      "亮度/色调跳了一下，我有点懵。",
+      "桌面换了心情，我调整一下。",
+      "视觉风格切换中～",
+      "屏幕像翻了一页新故事。",
+      "色气温差来了，我先适应。",
+      "桌面换装成功？"
+    ],
+    "variants": {
+      "app": [
+        {
+          "when": {
+            "timeOfDay": [
+              "morning"
+            ]
+          },
+          "speeches": [
+            "早间切应用，新的一天开场。",
+            "早上好，舞台换到这边了。",
+            "晨光里换个窗口，节奏不错。"
+          ]
+        },
+        {
+          "when": {
+            "timeOfDay": [
+              "night"
+            ]
+          },
+          "speeches": [
+            "夜里还在切换任务？我跟着你。",
+            "深夜换场，动作轻一点。",
+            "夜班模式：焦点搬家了。"
+          ]
+        }
+      ],
+      "appNamed": [
+        {
+          "when": {
+            "timeOfDay": [
+              "night"
+            ]
+          },
+          "speeches": [
+            "夜里切到「{name}」，我陪着。",
+            "「{name}」在深夜上场了。",
+            "夜深了，还是「{name}」最显眼。"
+          ]
+        }
+      ],
+      "scene": [
+        {
+          "when": {
+            "timeOfDay": [
+              "evening"
+            ]
+          },
+          "speeches": [
+            "傍晚色调变了，像下班铃。",
+            "黄昏感来了，桌面也换心情。",
+            "傍晚的光，画面柔了一点。"
+          ]
+        }
+      ]
+    }
+  },
+  "vision": {
+    "dark": {
+      "motionGroup": "Idle",
+      "speeches": [
+        "屏幕有点暗，要不要休息一下眼睛？",
+        "夜色模式？记得别熬太晚。",
+        "暗暗的，我把嗓门放小点。",
+        "低光环境，适合安静待着。",
+        "黑夜里也有我陪着你。",
+        "亮度偏低，眼睛先保暖。",
+        "暗调桌面，故事感拉满。",
+        "夜里工作也要对自己温柔点。"
+      ],
+      "variants": [
+        {
+          "when": {
+            "timeOfDay": [
+              "night"
+            ]
+          },
+          "speeches": [
+            "夜色桌面，适合收工啦。",
+            "这么暗，是不是该睡了？",
+            "夜里偏暗刚刚好，别再加灯刺眼。",
+            "黑暗里我小声陪着你。",
+            "夜深屏暗，记得放下肩膀。",
+            "熬夜模式检测到…温柔提醒一句。"
+          ]
+        }
+      ]
+    },
+    "busy": {
+      "motionGroup": "Tap",
+      "speeches": [
+        "画面好热闹！我都有点跟不上了。",
+        "信息密度好高，眨眨眼再看。",
+        "桌面像烟花一样忙～",
+        "色彩和细节都在跳舞。",
+        "好丰富，我先当旁观者。",
+        "热闹归热闹，别忘了喝水。",
+        "视觉盛宴进行中！",
+        "内容好多，慢慢消化就好。"
+      ]
+    },
+    "warm": {
+      "motionGroup": "TapBody",
+      "speeches": [
+        "暖暖的画面，感觉很放松。",
+        "色调偏暖，心情也软一点。",
+        "像下午四点的阳光呢。",
+        "暖色滤镜让人想伸懒腰。",
+        "这份温度，我很喜欢。",
+        "桌面带着小太阳的味道。",
+        "暖调一开，焦虑退散一点点。",
+        "舒服的颜色，适合慢慢做事。"
+      ]
+    },
+    "bright": {
+      "motionGroup": "Idle",
+      "speeches": [
+        "好亮啊…要不要调暗一点？",
+        "白茫茫的，眼睛抗议中。",
+        "亮度超标，我先眯一会。",
+        "强光警告，护眼模式启动？",
+        "亮到发光，记得眨眨眼。",
+        "屏幕在晒太阳，你也休息下。",
+        "太亮了，我去找阴影角。",
+        "调低一点，世界会更柔。"
+      ]
+    },
+    "plain": {
+      "motionGroup": "Idle",
+      "speeches": [
+        "画面很干净，适合静静待着。",
+        "素净桌面，我也不吵你。",
+        "简洁模式，我喜欢。",
+        "留白很多，呼吸也顺畅。",
+        "干净到想打个盹。",
+        "极简风，专注力加分。",
+        "空一点也好，心里不挤。",
+        "清爽画面，适合慢慢想。"
+      ]
+    }
+  }
+}

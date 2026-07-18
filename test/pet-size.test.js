@@ -7,6 +7,8 @@ const {
   MAX_PET_SCALE,
   MIN_PET_SCALE,
   clampPetScale,
+  clampPetXByCenterAxis,
+  getPetCenterAxisXLimits,
   getPetSeatAnchorOffset,
   getPetStandAnchorOffset,
   getPetWindowSize
@@ -36,5 +38,24 @@ describe("pet size configuration", () => {
     assert.ok(getPetSeatAnchorOffset(0.3) < getPetSeatAnchorOffset(1));
     assert.ok(getPetSeatAnchorOffset(1) < getPetSeatAnchorOffset(3));
     assert.ok(getPetSeatAnchorOffset(1) < getPetStandAnchorOffset(1));
+  });
+});
+
+describe("pet center-axis horizontal clamp", () => {
+  it("keeps the pet center on the screen edges", () => {
+    const width = 400;
+    const left = 0;
+    const right = 1000;
+
+    assert.equal(clampPetXByCenterAxis(-300, width, left, right), -200);
+    assert.equal(clampPetXByCenterAxis(900, width, left, right), 800);
+    assert.equal(clampPetXByCenterAxis(100, width, left, right), 100);
+  });
+
+  it("exposes matching limits for physics", () => {
+    assert.deepEqual(getPetCenterAxisXLimits(400, 0, 1000), {
+      minX: -200,
+      maxX: 800
+    });
   });
 });

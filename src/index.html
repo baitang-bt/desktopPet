@@ -4,17 +4,17 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self'; script-src 'self' 'wasm-unsafe-eval'"
+      content="default-src 'self' pet-model:; style-src 'self'; script-src 'self' 'wasm-unsafe-eval'; img-src 'self' pet-model: data: blob:; connect-src 'self' pet-model:; media-src 'self' pet-model:"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>桌宠实验</title>
+    <title>桌宠</title>
     <link rel="stylesheet" href="./pet.css" />
   </head>
   <body>
     <main class="pet-stage">
       <section class="pet-area" aria-label="桌宠交互区域">
-        <!-- 提示气泡暂时隐藏，对话逻辑保留在 pet.js 中 -->
-        <p class="speech" hidden>右键打开设置</p>
+        <!-- 屏幕感知等回应时由脚本显示气泡 -->
+        <p class="speech" hidden></p>
         <div class="pet-shell">
           <div class="pet" role="img" aria-label="Live2D 实验角色">
             <canvas id="live2d-canvas"></canvas>

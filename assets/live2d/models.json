@@ -4,26 +4,34 @@
     {
       "id": "haru",
       "name": "Haru",
-      "path": "../assets/live2d/haru/haru_greeter_t03.model3.json",
-      "tapMotion": "Tap"
+      "folder": "haru",
+      "modelFile": "haru_greeter_t03.model3.json",
+      "tapMotion": "Tap",
+      "randomMotions": ["Tap", "Idle"]
     },
     {
       "id": "hiyori",
       "name": "Hiyori",
-      "path": "../assets/live2d/hiyori/Hiyori.model3.json",
-      "tapMotion": "TapBody"
+      "folder": "hiyori",
+      "modelFile": "Hiyori.model3.json",
+      "tapMotion": "TapBody",
+      "randomMotions": ["Idle", "TapBody", "Action"]
     },
     {
-      "id": "mao",
-      "name": "Mao",
-      "path": "../assets/live2d/mao/Mao.model3.json",
-      "tapMotion": "TapBody"
+      "id": "ren",
+      "name": "Ren",
+      "folder": "ren",
+      "modelFile": "Ren.model3.json",
+      "tapMotion": "TapBody",
+      "randomMotions": ["Idle", "TapBody"]
     },
     {
-      "id": "wanko",
-      "name": "Wanko",
-      "path": "../assets/live2d/wanko/Wanko.model3.json",
-      "tapMotion": "TapBody"
+      "id": "rice",
+      "name": "Rice",
+      "folder": "rice",
+      "modelFile": "Rice.model3.json",
+      "tapMotion": "TapBody",
+      "randomMotions": ["Idle", "TapBody"]
     }
   ]
 }

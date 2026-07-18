@@ -29,6 +29,7 @@ body {
 }
 
 .pet-area {
+  position: relative;
   width: calc(var(--pet-base-width) * var(--pet-scale) + 20px);
   height: calc(var(--pet-base-height) * var(--pet-scale) + 70px);
   display: grid;
@@ -47,9 +48,20 @@ body {
 }
 
 .speech {
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%) rotate(-2deg);
   padding: 6px 10px;
   font-size: 13px;
-  transform: rotate(-2deg);
+  max-width: min(220px, 90%);
+  text-align: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.speech[hidden] {
+  display: none !important;
 }
 
 .hint {
@@ -91,45 +103,30 @@ body {
   transition: transform 220ms ease;
 }
 
+/* 下落保持正常站立比例，不沿用坐姿缩放。 */
+.pet.is-falling,
+.pet.is-falling.is-seated,
+.pet.is-falling.is-seated-pose,
+.pet.is-falling.is-seat-preview {
+  transform: none !important;
+  transition: none !important;
+}
+
 .pet.is-seat-preview {
-  transform: translateY(36px) scale(0.9);
+  transform: translateY(12px) scale(0.93);
 }
 
 .pet.is-seated,
 .pet.is-seated-pose {
-  transform: translateY(36px) scale(0.9);
+  transform: translateY(12px) scale(0.93);
 }
 
 .pet:is(.is-seat-preview, .is-seated)[data-seat-pose="1"] {
-  transform: translate(-12px, 34px) rotate(-4deg) scale(0.88);
+  transform: translate(-8px, 10px) rotate(-3deg) scale(0.91);
 }
 
 .pet:is(.is-seat-preview, .is-seated)[data-seat-pose="2"] {
-  transform: translate(12px, 42px) rotate(3deg) scale(0.84);
-}
-
-.pet:is(.is-seat-preview, .is-seated)[data-seat-placement="left-corner"][data-seat-pose="0"] {
-  transform: translate(-16px, 36px) rotate(-3deg) scale(0.87);
-}
-
-.pet:is(.is-seat-preview, .is-seated)[data-seat-placement="left-corner"][data-seat-pose="1"] {
-  transform: translate(-24px, 32px) rotate(-7deg) scale(0.83);
-}
-
-.pet:is(.is-seat-preview, .is-seated)[data-seat-placement="left-corner"][data-seat-pose="2"] {
-  transform: translate(-12px, 44px) rotate(3deg) scale(0.82);
-}
-
-.pet:is(.is-seat-preview, .is-seated)[data-seat-placement="right-corner"][data-seat-pose="0"] {
-  transform: translate(16px, 36px) rotate(3deg) scale(0.87);
-}
-
-.pet:is(.is-seat-preview, .is-seated)[data-seat-placement="right-corner"][data-seat-pose="1"] {
-  transform: translate(24px, 32px) rotate(7deg) scale(0.83);
-}
-
-.pet:is(.is-seat-preview, .is-seated)[data-seat-placement="right-corner"][data-seat-pose="2"] {
-  transform: translate(12px, 44px) rotate(-3deg) scale(0.82);
+  transform: translate(8px, 14px) rotate(2deg) scale(0.9);
 }
 
 .pet canvas {

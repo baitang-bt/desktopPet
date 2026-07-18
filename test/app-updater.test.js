@@ -127,4 +127,79 @@ describe("app updater flow", () => {
     assert.equal(status.state, "error");
     assert.match(status.message, /开发模式/);
   });
+
+  it("silently skips startup checks when unpackaged or missing token", async () => {
+    const unpackaged = createAppUpdater({
+      app: { getVersion: () => "0.1.0", isPackaged: false },
+      autoUpdater: createFakeAutoUpdater(),
+      userDataPath: os.tmpdir()
+    });
+
+    assert.equal(unpackaged.scheduleStartupCheck(0), false);
+    const silentUnpackaged = await unpackaged.checkForUpdates({ silent: true });
+    assert.equal(silentUnpackaged.state, "idle");
+
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "desktop-pet-silent-"));
+    const previousDesktop = process.env.DESKTOP_PET_GH_TOKEN;
+    const previousGh = process.env.GH_TOKEN;
+    delete process.env.DESKTOP_PET_GH_TOKEN;
+    delete process.env.GH_TOKEN;
+
+    try {
+      const noToken = createAppUpdater({
+        app: { getVersion: () => "0.1.0", isPackaged: true },
+        autoUpdater: createFakeAutoUpdater(),
+        userDataPath: tempDir
+      });
+      const silent = await noToken.checkForUpdates({ silent: true });
+      assert.equal(silent.state, "idle");
+      assert.equal(silent.message, "点击检查更新");
+    } finally {
+      if (previousDesktop === undefined) {
+        delete process.env.DESKTOP_PET_GH_TOKEN;
+      } else {
+        process.env.DESKTOP_PET_GH_TOKEN = previousDesktop;
+      }
+      if (previousGh === undefined) {
+        delete process.env.GH_TOKEN;
+      } else {
+        process.env.GH_TOKEN = previousGh;
+      }
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it("schedules a silent startup check for packaged builds", async () => {
+    const delays = [];
+    const autoUpdater = createFakeAutoUpdater();
+    let checked = false;
+
+    autoUpdater.checkForUpdates = async () => {
+      checked = true;
+      autoUpdater.emit("checking-for-update");
+      autoUpdater.emit("update-not-available", { version: "0.1.0" });
+    };
+
+    const updater = createAppUpdater({
+      app: { getVersion: () => "0.1.0", isPackaged: true },
+      autoUpdater,
+      userDataPath: fs.mkdtempSync(path.join(os.tmpdir(), "desktop-pet-startup-")),
+      startupCheckDelayMs: 25,
+      setTimeoutFn: (fn, delay) => {
+        delays.push(delay);
+        fn();
+        return 1;
+      }
+    });
+
+    process.env.DESKTOP_PET_GH_TOKEN = "test-token";
+    try {
+      assert.equal(updater.scheduleStartupCheck(), true);
+      assert.deepEqual(delays, [25]);
+      assert.equal(checked, true);
+      assert.equal(updater.getStatus().message, "当前已是最新版本");
+    } finally {
+      delete process.env.DESKTOP_PET_GH_TOKEN;
+    }
+  });
 });

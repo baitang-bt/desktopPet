@@ -5,15 +5,20 @@ const path = require("node:path");
 
 const UPDATE_OWNER = "baitang-bt";
 const UPDATE_REPO = "desktopPet";
+const STARTUP_CHECK_DELAY_MS = 4000;
 
 function createAppUpdater({
   app,
   autoUpdater,
   userDataPath,
-  onStatusChange
+  onStatusChange,
+  startupCheckDelayMs = STARTUP_CHECK_DELAY_MS,
+  setTimeoutFn = setTimeout
 }) {
   let status = createIdleStatus(app.getVersion());
   let configured = false;
+  let quietErrors = false;
+  let startupCheckTimer = null;
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
@@ -27,6 +32,7 @@ function createAppUpdater({
   });
 
   autoUpdater.on("update-available", (info) => {
+    quietErrors = false;
     emit({
       ...status,
       state: "available",
@@ -37,6 +43,7 @@ function createAppUpdater({
   });
 
   autoUpdater.on("update-not-available", () => {
+    quietErrors = false;
     emit({
       ...status,
       state: "idle",
@@ -67,6 +74,15 @@ function createAppUpdater({
   });
 
   autoUpdater.on("error", (error) => {
+    if (quietErrors) {
+      quietErrors = false;
+      emit({
+        ...createIdleStatus(app.getVersion()),
+        message: "点击检查更新"
+      });
+      return;
+    }
+
     emit({
       ...status,
       state: "error",
@@ -98,29 +114,42 @@ function createAppUpdater({
     return Boolean(token);
   }
 
-  async function checkForUpdates() {
+  async function checkForUpdates(options = {}) {
+    const silent = Boolean(options.silent);
+
     if (!app.isPackaged) {
-      emit({
-        ...status,
-        state: "error",
-        message: "开发模式不支持自动更新，请使用打包后的应用"
-      });
+      if (!silent) {
+        emit({
+          ...status,
+          state: "error",
+          message: "开发模式不支持自动更新，请使用打包后的应用"
+        });
+      }
       return getStatus();
     }
 
     const hasToken = configureFeed();
     if (!hasToken) {
-      emit({
-        ...status,
-        state: "error",
-        message: "私有仓库需要 GitHub Token，请设置 DESKTOP_PET_GH_TOKEN 或写入 github-token 文件"
-      });
+      if (!silent) {
+        emit({
+          ...status,
+          state: "error",
+          message: "私有仓库需要 GitHub Token，请设置 DESKTOP_PET_GH_TOKEN 或写入 github-token 文件"
+        });
+      }
       return getStatus();
     }
+
+    quietErrors = silent;
 
     try {
       await autoUpdater.checkForUpdates();
     } catch (error) {
+      if (silent) {
+        quietErrors = false;
+        return getStatus();
+      }
+
       emit({
         ...status,
         state: "error",
@@ -168,10 +197,29 @@ function createAppUpdater({
     return { ...status };
   }
 
+  // 每次启动延迟检查，避免抢启动；静默失败不打扰，有新版本仍会推送状态。
+  function scheduleStartupCheck(delayMs = startupCheckDelayMs) {
+    if (startupCheckTimer) {
+      clearTimeout(startupCheckTimer);
+      startupCheckTimer = null;
+    }
+
+    if (!app.isPackaged) {
+      return false;
+    }
+
+    startupCheckTimer = setTimeoutFn(() => {
+      startupCheckTimer = null;
+      void checkForUpdates({ silent: true });
+    }, delayMs);
+    return true;
+  }
+
   return {
     checkForUpdates,
     downloadOrInstall,
-    getStatus
+    getStatus,
+    scheduleStartupCheck
   };
 }
 
@@ -221,6 +269,7 @@ function formatUpdateError(error) {
 }
 
 module.exports = {
+  STARTUP_CHECK_DELAY_MS,
   UPDATE_OWNER,
   UPDATE_REPO,
   createAppUpdater,

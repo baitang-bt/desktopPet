@@ -7,10 +7,15 @@ const {
   createWindowSnapController,
   findBottomEdgeSnapTarget,
   findTopEdgeSnapTarget,
+  findWindowEdgeSnapTarget,
   followSeatedPosition,
   getPetAnchor,
   getSeatPlacement,
   isEligibleWindow,
+  resolveSnapDetectionWindows,
+  SEAT_HORIZONTAL_SLACK,
+  SEAT_OVERHANG_RATIO,
+  SEAT_SNAP_THRESHOLD,
   SNAP_THRESHOLD,
   ANCHOR_OFFSET_Y,
   STAND_ANCHOR_OFFSET_Y
@@ -75,7 +80,7 @@ describe("window-snap-controller geometry", () => {
 
     const target = findTopEdgeSnapTarget(PET, windows);
     assert.equal(target.windowId, 11);
-    assert.ok(target.score <= SNAP_THRESHOLD);
+    assert.ok(target.score / 1000 <= SNAP_THRESHOLD);
     assert.equal(target.snappedPosition.y, windows[1].bounds.y - ANCHOR_OFFSET_Y);
   });
 
@@ -101,11 +106,128 @@ describe("window-snap-controller geometry", () => {
     );
   });
 
+  it("prefers sitting on the top edge and standing on the bottom edge", () => {
+    const tallWindow = {
+      id: 14,
+      bounds: { x: 100, y: PET.y + ANCHOR_OFFSET_Y - 6, width: 700, height: 500 },
+      owner: { processId: 4, name: "Browser" }
+    };
+    const topTarget = findWindowEdgeSnapTarget(PET, [tallWindow]);
+    assert.equal(topTarget.mode, "seat");
+    assert.equal(topTarget.snappedPosition.y, tallWindow.bounds.y - ANCHOR_OFFSET_Y);
+
+    const bottomPet = {
+      ...PET,
+      y: tallWindow.bounds.y + tallWindow.bounds.height - STAND_ANCHOR_OFFSET_Y - 4
+    };
+    const bottomTarget = findWindowEdgeSnapTarget(bottomPet, [tallWindow]);
+    assert.equal(bottomTarget.mode, "stand");
+    assert.equal(
+      bottomTarget.snappedPosition.y,
+      tallWindow.bounds.y + tallWindow.bounds.height - STAND_ANCHOR_OFFSET_Y
+    );
+  });
+
+  it("prefers the frontmost window when edge distances are equal", () => {
+    const front = {
+      id: 51,
+      bounds: { x: 100, y: PET.y + ANCHOR_OFFSET_Y - 10, width: 600, height: 400 },
+      owner: { processId: 1, name: "Front" }
+    };
+    const back = {
+      id: 52,
+      bounds: { x: 100, y: PET.y + ANCHOR_OFFSET_Y - 10, width: 600, height: 400 },
+      owner: { processId: 2, name: "Back" }
+    };
+
+    const target = findWindowEdgeSnapTarget(PET, [front, back]);
+    assert.equal(target.windowId, 51);
+    assert.equal(target.windowIndex, 0);
+  });
+
+  it("resolves snap detection to the top two eligible windows", () => {
+    const front = {
+      id: 71,
+      bounds: { x: 100, y: 200, width: 600, height: 400 },
+      owner: { processId: 1, name: "Front" }
+    };
+    const second = {
+      id: 72,
+      bounds: { x: 100, y: 200, width: 600, height: 400 },
+      owner: { processId: 2, name: "Second" }
+    };
+    const third = {
+      id: 73,
+      bounds: { x: 100, y: 200, width: 600, height: 400 },
+      owner: { processId: 3, name: "Third" }
+    };
+
+    assert.deepEqual(
+      resolveSnapDetectionWindows([front, second, third]).map((w) => w.id),
+      [71, 72]
+    );
+  });
+
+  it("keeps the current preview window even when it drops out of the top two", () => {
+    const preview = {
+      id: 81,
+      bounds: { x: 100, y: 200, width: 600, height: 400 },
+      owner: { processId: 1, name: "Preview" }
+    };
+    const front = {
+      id: 82,
+      bounds: { x: 100, y: 200, width: 600, height: 400 },
+      owner: { processId: 2, name: "Front" }
+    };
+    const second = {
+      id: 83,
+      bounds: { x: 100, y: 200, width: 600, height: 400 },
+      owner: { processId: 3, name: "Second" }
+    };
+
+    assert.deepEqual(
+      resolveSnapDetectionWindows([front, second, preview], {
+        includeWindowId: 81
+      }).map((w) => w.id),
+      [81, 82, 83]
+    );
+  });
+
+  it("skips the pet window and uses the next top eligible layers", () => {
+    const pet = {
+      id: 91,
+      bounds: { x: 0, y: 0, width: 300, height: 300 },
+      owner: { processId: 99, name: "DesktopPet" }
+    };
+    const appWindow = {
+      id: 92,
+      bounds: { x: 100, y: 200, width: 600, height: 400 },
+      owner: { processId: 1, name: "Browser" }
+    };
+    const behind = {
+      id: 93,
+      bounds: { x: 100, y: 200, width: 600, height: 400 },
+      owner: { processId: 2, name: "Editor" }
+    };
+
+    assert.deepEqual(
+      resolveSnapDetectionWindows([pet, appWindow, behind], {
+        excludeOwnerNames: ["DesktopPet"]
+      }).map((w) => w.id),
+      [92, 93]
+    );
+  });
+
   it("ignores windows that are too far vertically", () => {
     const windows = [
       {
         id: 12,
-        bounds: { x: 100, y: PET.y + ANCHOR_OFFSET_Y + SNAP_THRESHOLD + 10, width: 600, height: 400 },
+        bounds: {
+          x: 100,
+          y: PET.y + ANCHOR_OFFSET_Y + SEAT_SNAP_THRESHOLD + 10,
+          width: 600,
+          height: 400
+        },
         owner: { processId: 1, name: "Far" }
       }
     ];
@@ -113,14 +235,74 @@ describe("window-snap-controller geometry", () => {
     assert.equal(findTopEdgeSnapTarget(PET, windows), null);
   });
 
-  it("clamps the horizontal snap position onto the target window", () => {
+  it("snaps within the larger seat vertical threshold", () => {
+    const windows = [
+      {
+        id: 15,
+        bounds: {
+          x: 100,
+          y: PET.y + ANCHOR_OFFSET_Y + SNAP_THRESHOLD + 4,
+          width: 600,
+          height: 400
+        },
+        owner: { processId: 1, name: "NearSeat" }
+      }
+    ];
+
+    const target = findTopEdgeSnapTarget(PET, windows);
+    assert.equal(target.windowId, 15);
+  });
+
+  it("allows horizontal seat approach with extra slack outside the window", () => {
+    const windows = [
+      {
+        id: 16,
+        bounds: {
+          x: PET.x + PET.width / 2 + SEAT_HORIZONTAL_SLACK - 8,
+          y: PET.y + ANCHOR_OFFSET_Y - 6,
+          width: 400,
+          height: 300
+        },
+        owner: { processId: 1, name: "SideSeat" }
+      }
+    ];
+
+    assert.ok(findTopEdgeSnapTarget(PET, windows));
+  });
+
+  it("keeps sticky seat preview preferred when distances are close", () => {
+    const near = {
+      id: 17,
+      bounds: { x: 100, y: PET.y + ANCHOR_OFFSET_Y - 4, width: 600, height: 400 },
+      owner: { processId: 1, name: "Near" }
+    };
+    const sticky = {
+      id: 18,
+      bounds: { x: 100, y: PET.y + ANCHOR_OFFSET_Y - 12, width: 600, height: 400 },
+      owner: { processId: 2, name: "Sticky" }
+    };
+
+    const withoutSticky = findWindowEdgeSnapTarget(PET, [near, sticky]);
+    assert.equal(withoutSticky.windowId, 17);
+
+    const withSticky = findWindowEdgeSnapTarget(PET, [near, sticky], {
+      stickyWindowId: 18,
+      stickyMode: "seat"
+    });
+    assert.equal(withSticky.windowId, 18);
+  });
+
+  it("clamps seat snap with overhang instead of flush left edge", () => {
     const targetBounds = { x: 500, y: 300, width: 300, height: 400 };
     const farPet = { x: 40, y: 100, width: 340, height: 320 };
     const snapped = computeSnappedPosition(farPet, targetBounds);
+    const half = farPet.width / 2;
+    const overhang = Math.round(farPet.width * SEAT_OVERHANG_RATIO);
+    const expectedCenter = targetBounds.x - overhang + half;
 
-    assert.equal(snapped.x, targetBounds.x);
+    assert.equal(snapped.x, expectedCenter - half);
+    assert.ok(snapped.x < targetBounds.x);
     assert.equal(snapped.y, targetBounds.y - ANCHOR_OFFSET_Y);
-    assert.equal(snapped.offsetX, 0);
   });
 
   it("lets stand mode reach window corners with half-body overhang", () => {
@@ -137,13 +319,17 @@ describe("window-snap-controller geometry", () => {
     assert.ok(right.x + rightCornerPet.width > targetBounds.x + targetBounds.width);
   });
 
-  it("classifies left corner, right corner, and regular edge seating", () => {
+  it("always treats seating as a regular edge (no corner placement)", () => {
     const targetBounds = { x: 100, y: 300, width: 900, height: 500 };
 
-    assert.equal(getSeatPlacement({ x: 100 }, targetBounds, PET.width), "left-corner");
+    assert.equal(getSeatPlacement({ x: 100 }, targetBounds, PET.width), "edge");
     assert.equal(
-      getSeatPlacement({ x: targetBounds.x + targetBounds.width - PET.width }, targetBounds, PET.width),
-      "right-corner"
+      getSeatPlacement(
+        { x: targetBounds.x + targetBounds.width - PET.width },
+        targetBounds,
+        PET.width
+      ),
+      "edge"
     );
     assert.equal(getSeatPlacement({ x: 380 }, targetBounds, PET.width), "edge");
   });
@@ -195,6 +381,16 @@ describe("window-snap-controller lifecycle", () => {
     assert.equal(seated.windowId, 21);
     assert.equal(states.at(-1), "seated");
     assert.deepEqual(positions.at(-1), seated.snappedPosition);
+
+    const seatedPosition = { ...petBounds };
+    await controller.beginDrag();
+    assert.equal(states.at(-1), "preview");
+
+    petBounds = { ...petBounds, x: petBounds.x + 40 };
+    const slid = controller.slidePreview();
+    assert.equal(slid.mode, "seat");
+    assert.equal(positions.at(-1).x, seatedPosition.x + 40);
+    assert.equal(positions.at(-1).y, targetWindow.bounds.y - ANCHOR_OFFSET_Y);
 
     controller.detach();
   });
@@ -372,7 +568,7 @@ describe("window-snap-controller lifecycle", () => {
     assert.equal(states.at(-1), "seated");
 
     await controller.beginDrag();
-    assert.equal(states.at(-1), "standing");
+    assert.equal(states.at(-1), "preview");
     controller.detach();
   });
 
@@ -419,7 +615,217 @@ describe("window-snap-controller lifecycle", () => {
     assert.equal(states.at(-1), "seated");
 
     await controller.beginDrag();
+    assert.equal(states.at(-1), "preview");
+    controller.detach();
+  });
+
+  it("detects top-layer snap windows but keeps following after attach", async () => {
+    const states = [];
+    const front = {
+      id: 101,
+      bounds: { x: 150, y: PET.y + ANCHOR_OFFSET_Y - 12, width: 700, height: 420 },
+      owner: { processId: 1, name: "Front" }
+    };
+    const background = {
+      id: 102,
+      bounds: { x: 150, y: PET.y + ANCHOR_OFFSET_Y - 12, width: 700, height: 420 },
+      owner: { processId: 2, name: "Background" }
+    };
+    let petBounds = { ...PET };
+    let allWindows = [front, background];
+    let snapWindows = [front];
+
+    const controller = createWindowSnapController({
+      getPetBounds: () => petBounds,
+      setPetPosition: (position) => {
+        petBounds = { ...petBounds, ...position };
+      },
+      listWindows: async () => allWindows,
+      listSnapWindows: async () => snapWindows,
+      onSeatStateChange: (payload) => states.push(payload.state),
+      followIntervalMs: 10
+    });
+
+    await controller.beginDrag();
+    const preview = await controller.dragMoved();
+    assert.equal(preview.windowId, 101);
+
+    const seated = await controller.endDrag();
+    assert.equal(seated.windowId, 101);
+    assert.equal(states.at(-1), "seated");
+
+    // 吸附后检测列表换成别的窗，跟随仍用完整列表跟踪原宿主。
+    snapWindows = [background];
+    front.bounds = {
+      ...front.bounds,
+      x: front.bounds.x + 50,
+      y: front.bounds.y + 20
+    };
+    const seatedPosition = { ...petBounds };
+    await new Promise((resolve) => setTimeout(resolve, 250));
+
+    assert.equal(states.at(-1), "seated");
+    assert.deepEqual(petBounds, {
+      ...seatedPosition,
+      x: seatedPosition.x + 50,
+      y: seatedPosition.y + 20
+    });
+
+    controller.detach();
+  });
+
+  it("ignores background windows during fresh snap detection", async () => {
+    const background = {
+      id: 111,
+      bounds: { x: 150, y: PET.y + ANCHOR_OFFSET_Y - 12, width: 700, height: 420 },
+      owner: { processId: 2, name: "Background" }
+    };
+    const focusedFar = {
+      id: 112,
+      bounds: { x: 150, y: PET.y + ANCHOR_OFFSET_Y + SNAP_THRESHOLD + 80, width: 700, height: 420 },
+      owner: { processId: 1, name: "FocusedFar" }
+    };
+    let petBounds = { ...PET };
+
+    const controller = createWindowSnapController({
+      getPetBounds: () => petBounds,
+      setPetPosition: (position) => {
+        petBounds = { ...petBounds, ...position };
+      },
+      listWindows: async () => [background, focusedFar],
+      listSnapWindows: async () => [focusedFar],
+      followIntervalMs: 20
+    });
+
+    await controller.beginDrag();
+    assert.equal(await controller.dragMoved(), null);
+    assert.equal(await controller.endDrag(), null);
+    controller.detach();
+  });
+
+  it("detaches stand attachment when the host drops below the top two layers", async () => {
+    const states = [];
+    const host = {
+      id: 201,
+      bounds: {
+        x: 150,
+        y: PET.y + STAND_ANCHOR_OFFSET_Y - 420 - 10,
+        width: 700,
+        height: 420
+      },
+      owner: { processId: 7, name: "Terminal" }
+    };
+    const front = {
+      id: 202,
+      bounds: { x: 40, y: 40, width: 500, height: 400 },
+      owner: { processId: 8, name: "Browser" }
+    };
+    const second = {
+      id: 203,
+      bounds: { x: 60, y: 60, width: 500, height: 400 },
+      owner: { processId: 9, name: "Notes" }
+    };
+    let petBounds = { ...PET };
+    let allWindows = [host, front, second];
+
+    const controller = createWindowSnapController({
+      getPetBounds: () => petBounds,
+      setPetPosition: (position) => {
+        petBounds = { ...petBounds, ...position };
+      },
+      listWindows: async () => allWindows,
+      listSnapWindows: async () => [host],
+      onSeatStateChange: (payload) => states.push(payload.state),
+      followIntervalMs: 15
+    });
+
+    await controller.beginDrag();
+    await controller.dragMoved();
+    await controller.endDrag();
+    assert.equal(states.at(-1), "standing-on-window");
+
+    // 宿主被压到第 3 层：应取消站立吸附。
+    allWindows = [front, second, host];
+    await new Promise((resolve) => setTimeout(resolve, 50));
     assert.equal(states.at(-1), "standing");
+    assert.equal(controller.getState().seatedTarget, null);
+
+    controller.detach();
+  });
+
+  it("keeps stand attachment when the pet sits above the host in z-order", async () => {
+    const states = [];
+    const host = {
+      id: 211,
+      bounds: {
+        x: 150,
+        y: PET.y + STAND_ANCHOR_OFFSET_Y - 420 - 10,
+        width: 700,
+        height: 420
+      },
+      owner: { processId: 7, name: "Terminal" }
+    };
+    const petApp = {
+      id: 212,
+      bounds: { x: 0, y: 0, width: 300, height: 300 },
+      owner: { processId: 99, name: "DesktopPet" }
+    };
+    let petBounds = { ...PET };
+    let allWindows = [host, petApp];
+
+    const controller = createWindowSnapController({
+      getPetBounds: () => petBounds,
+      setPetPosition: (position) => {
+        petBounds = { ...petBounds, ...position };
+      },
+      listWindows: async () => allWindows,
+      listSnapWindows: async () => [host],
+      excludeOwnerNames: ["DesktopPet"],
+      onSeatStateChange: (payload) => states.push(payload.state),
+      followIntervalMs: 15
+    });
+
+    await controller.beginDrag();
+    await controller.dragMoved();
+    await controller.endDrag();
+    assert.equal(states.at(-1), "standing-on-window");
+
+    // 桌宠置顶后宿主变为合格窗口的第 1 层，仍应保持站立。
+    allWindows = [petApp, host];
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.equal(states.at(-1), "standing-on-window");
+
+    controller.detach();
+  });
+
+  it("notifies while following so the host window layer can be tracked", async () => {
+    const followEvents = [];
+    const targetWindow = {
+      id: 61,
+      bounds: { x: 150, y: PET.y + ANCHOR_OFFSET_Y - 10, width: 700, height: 420 },
+      owner: { processId: 11, name: "Notes" }
+    };
+    let petBounds = { ...PET };
+
+    const controller = createWindowSnapController({
+      getPetBounds: () => petBounds,
+      setPetPosition: (position) => {
+        petBounds = { ...petBounds, ...position };
+      },
+      listWindows: async () => [targetWindow],
+      onAttachedFollow: (target) => followEvents.push(target.windowId),
+      followIntervalMs: 15
+    });
+
+    await controller.beginDrag();
+    await controller.dragMoved();
+    await controller.endDrag();
+    assert.ok(followEvents.includes(61));
+
+    const before = followEvents.length;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    assert.ok(followEvents.length > before);
+
     controller.detach();
   });
 });

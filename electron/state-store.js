@@ -1,21 +1,23 @@
 const fs = require("node:fs");
-const MODEL_CATALOG = require("../assets/live2d/models.json");
+const { builtinCatalog } = require("./live2d-catalog");
 const {
   DEFAULT_IDLE_THRESHOLD_SECONDS,
   normalizeIdleThresholdSeconds
 } = require("./idle-mode-controller");
 const { DEFAULT_PET_SCALE, clampPetScale } = require("./pet-size");
 
-const MODEL_IDS = new Set(MODEL_CATALOG.models.map(({ id }) => id));
 const STATE_VERSION = 2;
 
 const DEFAULT_SETTINGS = {
   alwaysOnTop: true,
   animationsEnabled: true,
+  gravityEnabled: true,
   idleTimeoutSeconds: DEFAULT_IDLE_THRESHOLD_SECONDS,
   launchAtLogin: false,
-  modelId: MODEL_CATALOG.defaultModelId,
-  petSize: DEFAULT_PET_SCALE
+  modelId: builtinCatalog.defaultModelId,
+  petSize: DEFAULT_PET_SCALE,
+  screenAwarenessEnabled: false,
+  agentAlertEnabled: false
 };
 
 function createStateStore(filePath) {
@@ -38,16 +40,32 @@ function createStateStore(filePath) {
 
     getWindowPosition(windowName) {
       const position = state.windows[windowName];
-      return position && Number.isFinite(position.x) && Number.isFinite(position.y)
-        ? { ...position }
-        : null;
+      if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+        return null;
+      }
+
+      const result = { x: position.x, y: position.y };
+
+      if (Number.isFinite(position.width) && Number.isFinite(position.height)) {
+        result.width = position.width;
+        result.height = position.height;
+      }
+
+      return result;
     },
 
     setWindowPosition(windowName, position) {
-      state.windows[windowName] = {
+      const next = {
         x: Math.round(position.x),
         y: Math.round(position.y)
       };
+
+      if (Number.isFinite(position.width) && Number.isFinite(position.height)) {
+        next.width = Math.round(position.width);
+        next.height = Math.round(position.height);
+      }
+
+      state.windows[windowName] = next;
       save();
     }
   };
@@ -76,6 +94,15 @@ function createStateStore(filePath) {
 }
 
 function validateSettings(settings = {}) {
+  const screenAwarenessEnabled =
+    typeof settings.screenAwarenessEnabled === "boolean"
+      ? settings.screenAwarenessEnabled
+      : DEFAULT_SETTINGS.screenAwarenessEnabled;
+  const agentAlertRequested =
+    typeof settings.agentAlertEnabled === "boolean"
+      ? settings.agentAlertEnabled
+      : DEFAULT_SETTINGS.agentAlertEnabled;
+
   return {
     alwaysOnTop:
       typeof settings.alwaysOnTop === "boolean"
@@ -85,15 +112,24 @@ function validateSettings(settings = {}) {
       typeof settings.animationsEnabled === "boolean"
         ? settings.animationsEnabled
         : DEFAULT_SETTINGS.animationsEnabled,
+    gravityEnabled:
+      typeof settings.gravityEnabled === "boolean"
+        ? settings.gravityEnabled
+        : DEFAULT_SETTINGS.gravityEnabled,
     idleTimeoutSeconds: normalizeIdleThresholdSeconds(settings.idleTimeoutSeconds),
     launchAtLogin:
       typeof settings.launchAtLogin === "boolean"
         ? settings.launchAtLogin
         : DEFAULT_SETTINGS.launchAtLogin,
-    modelId: MODEL_IDS.has(settings.modelId) ? settings.modelId : DEFAULT_SETTINGS.modelId,
+    modelId:
+      typeof settings.modelId === "string" && settings.modelId.trim()
+        ? settings.modelId.trim()
+        : DEFAULT_SETTINGS.modelId,
     petSize:
-      typeof settings.petSize === "number" ? clampPetScale(settings.petSize) : DEFAULT_SETTINGS.petSize
+      typeof settings.petSize === "number" ? clampPetScale(settings.petSize) : DEFAULT_SETTINGS.petSize,
+    screenAwarenessEnabled,
+    agentAlertEnabled: Boolean(screenAwarenessEnabled && agentAlertRequested)
   };
 }
 
-module.exports = { createStateStore };
+module.exports = { createStateStore, DEFAULT_SETTINGS };

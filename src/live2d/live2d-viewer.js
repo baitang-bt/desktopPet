@@ -1,23 +1,14 @@
 "use strict";
 
 (() => {
-  const CATALOG_URL = "../assets/live2d/models.json";
   const HIT_ALPHA_THRESHOLD = 24;
+  const RANDOM_MOTION_MIN_MS = 14000;
+  const RANDOM_MOTION_MAX_MS = 38000;
   const SEAT_POSES = {
     edge: [
-      { horizontalBias: 0, rotation: 0, scaleFactor: 0.88, verticalBias: 0.3 },
-      { horizontalBias: -0.06, rotation: -0.05, scaleFactor: 0.86, verticalBias: 0.27 },
-      { horizontalBias: 0.07, rotation: 0.04, scaleFactor: 0.82, verticalBias: 0.34 }
-    ],
-    "left-corner": [
-      { horizontalBias: -0.1, rotation: -0.08, scaleFactor: 0.84, verticalBias: 0.3 },
-      { horizontalBias: -0.15, rotation: -0.15, scaleFactor: 0.8, verticalBias: 0.27 },
-      { horizontalBias: -0.08, rotation: 0.06, scaleFactor: 0.82, verticalBias: 0.35 }
-    ],
-    "right-corner": [
-      { horizontalBias: 0.1, rotation: 0.08, scaleFactor: 0.84, verticalBias: 0.3 },
-      { horizontalBias: 0.15, rotation: 0.15, scaleFactor: 0.8, verticalBias: 0.27 },
-      { horizontalBias: 0.08, rotation: -0.06, scaleFactor: 0.82, verticalBias: 0.35 }
+      { horizontalBias: 0, rotation: 0, scaleFactor: 0.92, verticalBias: 0.12 },
+      { horizontalBias: -0.04, rotation: -0.04, scaleFactor: 0.9, verticalBias: 0.1 },
+      { horizontalBias: 0.04, rotation: 0.03, scaleFactor: 0.9, verticalBias: 0.14 }
     ]
   };
   const canvas = document.querySelector("#live2d-canvas");
@@ -33,8 +24,10 @@
   let loadSequence = 0;
   let isAnimationEnabled = true;
   let isSeated = false;
+  let isFalling = false;
   let seatPoseIndex = 0;
   let seatPlacement = "edge";
+  let randomMotionTimer = null;
 
   function fitModel() {
     if (!application || !model) {
@@ -63,18 +56,97 @@
     );
   }
 
-  function playHitReaction(hitAreas) {
-    const modelConfig = catalog.models.find(({ id }) => id === currentModelId);
+  function getCurrentModelConfig() {
+    return catalog?.models.find(({ id }) => id === currentModelId) ?? null;
+  }
 
-    if (modelConfig && hitAreas.length > 0) {
-      model.motion(modelConfig.tapMotion);
+  function stopRandomMotions() {
+    if (randomMotionTimer) {
+      clearTimeout(randomMotionTimer);
+      randomMotionTimer = null;
     }
+  }
+
+  // 立刻停掉当前 Live2D 动作（下落等场景暂不播动作）。
+  function stopActiveMotions() {
+    stopRandomMotions();
+    model?.internalModel?.motionManager?.stopAllMotions();
+  }
+
+  function nextRandomMotionDelay() {
+    return (
+      RANDOM_MOTION_MIN_MS +
+      Math.floor(Math.random() * (RANDOM_MOTION_MAX_MS - RANDOM_MOTION_MIN_MS + 1))
+    );
+  }
+
+  function canPlayRandomMotion() {
+    return Boolean(
+      model &&
+        isAnimationEnabled &&
+        !isSeated &&
+        !isFalling &&
+        !document.hidden &&
+        getCurrentModelConfig()?.randomMotions?.length
+    );
+  }
+
+  // 站立空闲时随机播动作（伸懒腰、转身等），坐下或关闭动画时不打扰。
+  function playRandomMotion() {
+    const modelConfig = getCurrentModelConfig();
+    const groups = modelConfig?.randomMotions;
+
+    if (!canPlayRandomMotion() || !groups?.length) {
+      return false;
+    }
+
+    const group = groups[Math.floor(Math.random() * groups.length)];
+    model.motion(group);
+    return true;
+  }
+
+  function scheduleRandomMotion() {
+    stopRandomMotions();
+
+    if (!canPlayRandomMotion()) {
+      return;
+    }
+
+    randomMotionTimer = setTimeout(() => {
+      playRandomMotion();
+      scheduleRandomMotion();
+    }, nextRandomMotionDelay());
+  }
+
+  function playHitReaction(hitAreas) {
+    const modelConfig = getCurrentModelConfig();
+
+    if (isFalling || !modelConfig || hitAreas.length === 0) {
+      return;
+    }
+
+    model.motion(modelConfig.tapMotion);
+    scheduleRandomMotion();
   }
 
   async function start() {
     try {
-      const catalogResponse = await fetch(CATALOG_URL);
-      catalog = await catalogResponse.json();
+      catalog = (await window.desktopPet?.getLive2dCatalog?.()) ?? null;
+
+      if (!catalog?.models?.length) {
+        const catalogResponse = await fetch("../assets/live2d/models.json");
+        const raw = await catalogResponse.json();
+        catalog = {
+          defaultModelId: raw.defaultModelId,
+          models: (raw.models ?? []).map((entry) => ({
+            ...entry,
+            path:
+              entry.path ??
+              `pet-model://builtin/${entry.folder ?? entry.id}/${entry.modelFile}`
+          }))
+        };
+      }
+
       application = new PIXI.Application({
         view: canvas,
         resizeTo: petElement,
@@ -95,9 +167,15 @@
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
           application.ticker.stop();
+          stopRandomMotions();
         } else if (isAnimationEnabled) {
           application.ticker.start();
+          scheduleRandomMotion();
         }
+      });
+
+      window.desktopPet?.onLive2dCatalogChanged?.((nextCatalog) => {
+        catalog = nextCatalog;
       });
     } catch (error) {
       statusElement.textContent = "Live2D 加载失败";
@@ -132,6 +210,7 @@
 
     const sequence = ++loadSequence;
     pendingModelId = modelId;
+    stopRandomMotions();
     statusElement.textContent = "正在切换 Live2D…";
     petElement.classList.remove("has-error");
 
@@ -155,6 +234,7 @@
       fitModel();
       application.render();
       petElement.classList.add("is-loaded");
+      scheduleRandomMotion();
 
       if (previousModel) {
         application.stage.removeChild(previousModel);
@@ -180,8 +260,10 @@
 
     if (enabled) {
       application.ticker.start();
+      scheduleRandomMotion();
     } else {
       application.ticker.stop();
+      stopRandomMotions();
     }
   }
 
@@ -199,6 +281,28 @@
     isSeated = Boolean(seated);
     petElement.classList.toggle("is-seated-pose", isSeated);
     applyScale();
+
+    if (isSeated) {
+      stopRandomMotions();
+    } else if (!isFalling) {
+      scheduleRandomMotion();
+    }
+  }
+
+  function setFalling(falling) {
+    isFalling = Boolean(falling);
+
+    if (isFalling) {
+      isSeated = false;
+      petElement.classList.remove("is-seated-pose");
+      stopActiveMotions();
+      applyScale();
+      return;
+    }
+
+    if (!isSeated) {
+      scheduleRandomMotion();
+    }
   }
 
   function setSeatPose(poseIndex) {
@@ -265,20 +369,65 @@
     return false;
   }
 
-  function playSeatReaction() {
-    const modelConfig = catalog?.models.find(({ id }) => id === currentModelId);
-
-    if (model && modelConfig) {
-      model.motion(modelConfig.tapMotion);
+  function playConfiguredMotion(spec, fallbackGroup) {
+    if (!model || isFalling) {
+      return false;
     }
+
+    let group = fallbackGroup;
+    let motionIndex;
+
+    if (typeof spec === "string") {
+      group = spec;
+    } else if (spec && typeof spec === "object") {
+      group = spec.group ?? fallbackGroup;
+      if (Number.isInteger(spec.index) && spec.index >= 0) {
+        motionIndex = spec.index;
+      }
+    }
+
+    if (!group) {
+      return false;
+    }
+
+    if (motionIndex === undefined) {
+      model.motion(group);
+    } else {
+      model.motion(group, motionIndex);
+    }
+
+    return true;
+  }
+
+  function playSeatReaction() {
+    if (isFalling) {
+      return;
+    }
+
+    const modelConfig = getCurrentModelConfig();
+
+    if (modelConfig) {
+      playConfiguredMotion(modelConfig.tapMotion);
+    }
+  }
+
+  function playReactionMotion(motionGroup) {
+    if (isFalling || !model || !motionGroup) {
+      return false;
+    }
+
+    return playConfiguredMotion(motionGroup);
   }
 
   window.live2dPet = {
     applyScale,
     hitTest,
+    playRandomMotion,
+    playReactionMotion,
     playSeatReaction,
     setModel,
     setAnimationEnabled,
+    setFalling,
     setSeated,
     setSeatPlacement,
     setSeatPose
