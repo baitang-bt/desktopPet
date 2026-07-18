@@ -66,6 +66,16 @@ describe("agent hook status", () => {
         entry.command.includes("desktop-pet-agent-status")
       )
     );
+    assert.ok(
+      config.hooks.beforeShellExecution.some((entry) =>
+        entry.command.includes("desktop-pet-agent-status")
+      )
+    );
+    assert.ok(
+      config.hooks.afterShellExecution.some((entry) =>
+        entry.command.includes("desktop-pet-agent-status")
+      )
+    );
 
     const info = getCursorHooksInstallInfo({ hooksDir, hooksJsonPath });
     assert.equal(info.installed, true);
@@ -122,6 +132,138 @@ describe("agent hook status", () => {
 
     assert.equal(reactions.at(-1)?.id, "agent-complete");
     assert.equal(reactions.at(-1)?.source, "agent-hook");
+    controller.stop();
+  });
+
+  it("arms a permission alert when tool-start is not cleared by tool-end", async () => {
+    const reactions = [];
+    let seq = 1;
+    let now = 1_000;
+    const timers = [];
+
+    fs.writeFileSync(
+      statusPath,
+      JSON.stringify({ version: 1, seq, kind: "complete", at: now }) + "\n"
+    );
+
+    const consumer = createAgentHookConsumer({ statusPath });
+    const controller = createScreenAwarenessController({
+      getActiveWindow: async () => ({ owner: { name: "Safari" }, title: "x" }),
+      captureScreen: async () => null,
+      getScreenAccessStatus: async () => "denied",
+      onReaction: (reaction) => reactions.push(reaction),
+      intervalMs: 60_000,
+      agentIntervalMs: 60_000,
+      cooldownMs: 1,
+      agentCooldownMs: 1,
+      agentHookCooldownMs: 1,
+      permissionArmMs: 50,
+      nowFn: () => now,
+      setIntervalFn: () => 1,
+      clearIntervalFn: () => {},
+      setTimeoutFn: (fn, ms) => {
+        const id = { fn, due: now + ms };
+        timers.push(id);
+        return id;
+      },
+      clearTimeoutFn: (id) => {
+        const index = timers.indexOf(id);
+        if (index >= 0) {
+          timers.splice(index, 1);
+        }
+      },
+      agentHookConsumer: consumer
+    });
+
+    controller.setAgentAlertEnabled(true);
+    await controller.start();
+
+    seq += 1;
+    fs.writeFileSync(
+      statusPath,
+      JSON.stringify({ version: 1, seq, kind: "tool-start", source: "beforeShellExecution", at: now }) +
+        "\n"
+    );
+    assert.equal(controller.flushAgentHookAlerts(), false);
+    assert.equal(reactions.some((item) => item.id === "agent-permission"), false);
+
+    now += 60;
+    for (const timer of [...timers]) {
+      if (timer.due <= now) {
+        timer.fn();
+      }
+    }
+
+    assert.equal(reactions.at(-1)?.id, "agent-permission");
+    assert.equal(reactions.at(-1)?.source, "agent-hook");
+    controller.stop();
+  });
+
+  it("cancels armed permission when tool-end arrives in time", async () => {
+    const reactions = [];
+    let seq = 1;
+    let now = 1_000;
+    const timers = [];
+
+    fs.writeFileSync(
+      statusPath,
+      JSON.stringify({ version: 1, seq, kind: "complete", at: now }) + "\n"
+    );
+
+    const consumer = createAgentHookConsumer({ statusPath });
+    const controller = createScreenAwarenessController({
+      getActiveWindow: async () => ({ owner: { name: "Safari" }, title: "x" }),
+      captureScreen: async () => null,
+      getScreenAccessStatus: async () => "denied",
+      onReaction: (reaction) => reactions.push(reaction),
+      intervalMs: 60_000,
+      agentIntervalMs: 60_000,
+      cooldownMs: 1,
+      agentCooldownMs: 1,
+      agentHookCooldownMs: 1,
+      permissionArmMs: 200,
+      nowFn: () => now,
+      setIntervalFn: () => 1,
+      clearIntervalFn: () => {},
+      setTimeoutFn: (fn, ms) => {
+        const id = { fn, due: now + ms, cancelled: false };
+        timers.push(id);
+        return id;
+      },
+      clearTimeoutFn: (id) => {
+        if (id) {
+          id.cancelled = true;
+        }
+      },
+      agentHookConsumer: consumer
+    });
+
+    controller.setAgentAlertEnabled(true);
+    await controller.start();
+
+    seq += 1;
+    fs.writeFileSync(
+      statusPath,
+      JSON.stringify({ version: 1, seq, kind: "tool-start", at: now }) + "\n"
+    );
+    controller.flushAgentHookAlerts();
+
+    seq += 1;
+    now += 20;
+    fs.writeFileSync(
+      statusPath,
+      JSON.stringify({ version: 1, seq, kind: "tool-end", at: now }) + "\n"
+    );
+    controller.flushAgentHookAlerts();
+
+    now += 300;
+    for (const timer of timers) {
+      if (!timer.cancelled && timer.due <= now) {
+        timer.fn();
+      }
+    }
+
+    assert.equal(reactions.some((item) => item.id === "agent-permission"), false);
     controller.stop();
   });
 

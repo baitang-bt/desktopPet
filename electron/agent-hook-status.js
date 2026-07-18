@@ -34,7 +34,12 @@ function readAgentHookStatus(statusPath = getDefaultStatusPath()) {
     }
 
     const kind = String(data.kind ?? "");
-    if (kind !== "complete" && kind !== "permission") {
+    if (
+      kind !== "complete" &&
+      kind !== "permission" &&
+      kind !== "tool-start" &&
+      kind !== "tool-end"
+    ) {
       return null;
     }
 
@@ -44,7 +49,9 @@ function readAgentHookStatus(statusPath = getDefaultStatusPath()) {
       kind,
       at: Number(data.at) || 0,
       source: data.source ?? null,
-      status: data.status ?? null
+      status: data.status ?? null,
+      toolName: data.toolName ?? null,
+      detail: data.detail ?? null
     };
   } catch {
     return null;
@@ -154,6 +161,22 @@ function installCursorAgentHooks({
     config.hooks.postToolUseFailure,
     relativeCommand
   );
+  config.hooks.beforeShellExecution = ensureHookEntry(
+    config.hooks.beforeShellExecution,
+    relativeCommand
+  );
+  config.hooks.afterShellExecution = ensureHookEntry(
+    config.hooks.afterShellExecution,
+    relativeCommand
+  );
+  config.hooks.beforeMCPExecution = ensureHookEntry(
+    config.hooks.beforeMCPExecution,
+    relativeCommand
+  );
+  config.hooks.afterMCPExecution = ensureHookEntry(
+    config.hooks.afterMCPExecution,
+    relativeCommand
+  );
 
   fs.mkdirSync(path.dirname(hooksJsonPath), { recursive: true });
   fs.writeFileSync(hooksJsonPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
@@ -179,8 +202,12 @@ function getCursorHooksInstallInfo({
     const config = readHooksJson(hooksJsonPath);
     const stop = config.hooks?.stop ?? [];
     const failure = config.hooks?.postToolUseFailure ?? [];
-    configured = [...stop, ...failure].some((entry) =>
-      String(entry?.command ?? "").includes(HOOK_MARKER)
+    const beforeShell = config.hooks?.beforeShellExecution ?? [];
+    const afterShell = config.hooks?.afterShellExecution ?? [];
+    const beforeMcp = config.hooks?.beforeMCPExecution ?? [];
+    const afterMcp = config.hooks?.afterMCPExecution ?? [];
+    configured = [...stop, ...failure, ...beforeShell, ...afterShell, ...beforeMcp, ...afterMcp].some(
+      (entry) => String(entry?.command ?? "").includes(HOOK_MARKER)
     );
   } catch {
     configured = false;

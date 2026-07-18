@@ -14,12 +14,14 @@ const {
 const { createAgentHookConsumer } = require("./agent-hook-status");
 
 const DEFAULT_INTERVAL_MS = 20_000;
-const DEFAULT_AGENT_INTERVAL_MS = 3_000;
+const DEFAULT_AGENT_INTERVAL_MS = 1_500;
 const DEFAULT_COOLDOWN_MS = 90_000;
-const DEFAULT_AGENT_COOLDOWN_MS = 20_000;
-const DEFAULT_AGENT_HOOK_COOLDOWN_MS = 4_000;
-const DEFAULT_AGENT_HOOK_POLL_MS = 1_000;
+const DEFAULT_AGENT_COOLDOWN_MS = 12_000;
+const DEFAULT_AGENT_HOOK_COOLDOWN_MS = 3_000;
+const DEFAULT_AGENT_HOOK_POLL_MS = 250;
+const DEFAULT_PERMISSION_ARM_MS = 900;
 const CAPTURE_MAX_WIDTH = 1280;
+const AGENT_CAPTURE_MAX_WIDTH = 720;
 const DEFAULT_AGENT_WINDOW_PATTERNS = [
   /cursor/i,
   /claude/i,
@@ -46,8 +48,11 @@ function createScreenAwarenessController({
   agentCooldownMs = DEFAULT_AGENT_COOLDOWN_MS,
   agentHookCooldownMs = DEFAULT_AGENT_HOOK_COOLDOWN_MS,
   agentHookPollMs = DEFAULT_AGENT_HOOK_POLL_MS,
+  permissionArmMs = DEFAULT_PERMISSION_ARM_MS,
   setIntervalFn = setInterval,
   clearIntervalFn = clearInterval,
+  clearTimeoutFn = clearTimeout,
+  setTimeoutFn = setTimeout,
   nowFn = () => Date.now(),
   agentHookConsumer = null,
   watchAgentHookStatus = null
@@ -58,6 +63,7 @@ function createScreenAwarenessController({
   let timer = null;
   let hookPollTimer = null;
   let hookWatcher = null;
+  let permissionArmTimer = null;
   let tickInFlight = false;
   let lastReactionId = null;
   let lastReactionAt = 0;
@@ -196,10 +202,51 @@ function createScreenAwarenessController({
       return null;
     }
 
+    if (event.kind === "tool-start") {
+      armPendingPermission(timeOptions);
+      return null;
+    }
+
+    if (event.kind === "tool-end") {
+      disarmPendingPermission();
+      return null;
+    }
+
+    disarmPendingPermission();
+
     return buildAgentKindReaction(event.kind, {
       ...timeOptions,
       source: "hook"
     });
+  }
+
+  function disarmPendingPermission() {
+    if (permissionArmTimer) {
+      clearTimeoutFn(permissionArmTimer);
+      permissionArmTimer = null;
+    }
+  }
+
+  function armPendingPermission(timeOptions = {}) {
+    disarmPendingPermission();
+
+    permissionArmTimer = setTimeoutFn(() => {
+      permissionArmTimer = null;
+
+      if (!enabled || !running || !agentAlertEnabled) {
+        return;
+      }
+
+      const reaction = buildAgentKindReaction("permission", {
+        ...timeOptions,
+        now: new Date(nowFn()),
+        source: "hook"
+      });
+
+      if (shouldEmit(reaction)) {
+        onReaction?.(reaction);
+      }
+    }, permissionArmMs);
   }
 
   /** Hooks 提醒不走 OCR tick，避免被截屏/识别卡住。 */
@@ -210,6 +257,11 @@ function createScreenAwarenessController({
 
     const timeOptions = { now: new Date(nowFn()) };
     const hookReaction = consumeHookReaction(timeOptions);
+
+    // tool-start / tool-end 可能只武装或取消计时器，没有即时 reaction
+    if (!hookReaction) {
+      return false;
+    }
 
     if (!shouldEmit(hookReaction)) {
       return false;
@@ -326,7 +378,8 @@ function createScreenAwarenessController({
         if (canCapture) {
           try {
             const shot = await captureScreen?.({
-              preferAgentWindow: agentAlertEnabled
+              preferAgentWindow: agentAlertEnabled,
+              maxWidth: agentAlertEnabled ? AGENT_CAPTURE_MAX_WIDTH : CAPTURE_MAX_WIDTH
             });
             if (shot?.image) {
               const analyzed = await runOcrAndVision(shot, timeOptions);
@@ -415,6 +468,7 @@ function createScreenAwarenessController({
     lastError = null;
     previousActiveWindow = null;
     previousVisionMetrics = null;
+    disarmPendingPermission();
     stopTimer();
     stopHookWatcher();
     stopHookPoll();
@@ -462,8 +516,8 @@ function createDefaultScreenCapture({
   nativeImage,
   agentWindowPatterns = DEFAULT_AGENT_WINDOW_PATTERNS
 }) {
-  async function pickSource({ preferAgentWindow = false } = {}) {
-    const thumbnailSize = { width: CAPTURE_MAX_WIDTH, height: CAPTURE_MAX_WIDTH };
+  async function pickSource({ preferAgentWindow = false, maxWidth = CAPTURE_MAX_WIDTH } = {}) {
+    const thumbnailSize = { width: maxWidth, height: maxWidth };
 
     if (preferAgentWindow) {
       const windows = await desktopCapturer.getSources({
@@ -481,7 +535,7 @@ function createDefaultScreenCapture({
       });
 
       if (agentWindow) {
-        return { source: agentWindow, sourceKind: "agent-window" };
+        return { source: agentWindow, sourceKind: "agent-window", maxWidth };
       }
     }
 
@@ -490,11 +544,12 @@ function createDefaultScreenCapture({
       thumbnailSize
     });
 
-    return { source: screens[0] ?? null, sourceKind: "screen" };
+    return { source: screens[0] ?? null, sourceKind: "screen", maxWidth };
   }
 
   return async function captureScreen(options = {}) {
-    const { source, sourceKind } = await pickSource(options);
+    const maxWidth = Number(options.maxWidth) > 0 ? Number(options.maxWidth) : CAPTURE_MAX_WIDTH;
+    const { source, sourceKind } = await pickSource({ ...options, maxWidth });
 
     if (!source?.thumbnail || source.thumbnail.isEmpty()) {
       return null;
@@ -503,10 +558,10 @@ function createDefaultScreenCapture({
     let image = source.thumbnail;
     const size = image.getSize();
 
-    if (size.width > CAPTURE_MAX_WIDTH) {
-      const scale = CAPTURE_MAX_WIDTH / size.width;
+    if (size.width > maxWidth) {
+      const scale = maxWidth / size.width;
       image = image.resize({
-        width: CAPTURE_MAX_WIDTH,
+        width: maxWidth,
         height: Math.max(1, Math.round(size.height * scale))
       });
     }
@@ -547,6 +602,7 @@ function createTesseractRecognizer(createWorker) {
 }
 
 module.exports = {
+  AGENT_CAPTURE_MAX_WIDTH,
   CAPTURE_MAX_WIDTH,
   DEFAULT_AGENT_COOLDOWN_MS,
   DEFAULT_AGENT_HOOK_COOLDOWN_MS,
@@ -555,6 +611,7 @@ module.exports = {
   DEFAULT_AGENT_WINDOW_PATTERNS,
   DEFAULT_COOLDOWN_MS,
   DEFAULT_INTERVAL_MS,
+  DEFAULT_PERMISSION_ARM_MS,
   createDefaultScreenCapture,
   createScreenAwarenessController,
   createTesseractRecognizer
