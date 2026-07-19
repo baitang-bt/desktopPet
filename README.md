@@ -46,26 +46,24 @@ npm run dist:win   # 生成 Windows 安装包（需在 Windows 上运行）
 - `dist/DesktopPet-0.1.0-arm64.dmg`：拖入“应用程序”后即可使用
 - `dist/DesktopPet-0.1.0-arm64-mac.zip`：供设置页自动更新使用
 
-### 发布与检查更新（私有仓库）
+### 发布与检查更新
 
-更新源：`https://github.com/baitang-bt/desktopPet`（private）。
+更新源：`https://github.com/baitang-bt/desktopPet`（public）。客户端检查更新**不需要** Token。
 
-1. 创建 GitHub Token（需 `repo` 权限），发布时设置环境变量：
+发布 Release 时仍需有权限的 GitHub Token（只用于维护者上传，不要提交进仓库）：
 
 ```bash
 export GH_TOKEN=你的token
 npm run publish:mac
 ```
 
-2. 客户端检查更新时同样需要 Token，任选其一：
-   - 环境变量：`DESKTOP_PET_GH_TOKEN` 或 `GH_TOKEN`
-   - 文件：把 Token 写入应用数据目录下的 `github-token`（macOS 一般在 `~/Library/Application Support/cursor-desktop-pet/github-token`）
+Token 也可写在本机应用数据目录的 `github-token`（已在 `.gitignore`），或环境变量 `DESKTOP_PET_GH_TOKEN` / `GH_TOKEN`。
 
-3. 设置 → 常规 →「检查更新」/「更新」。发现新版本后先下载，再点「安装并重启」。
+设置 → 常规 →「检查更新」/「更新」。发现新版本后先下载，再点「安装并重启」。
 
 当前构建未做代码签名和公证。首次打开被 Gatekeeper 拦截时，右键应用选择“打开”，或在“系统设置 → 隐私与安全性”中允许一次。
 
-Live2D 运行库和示例模型仅用于个人实验，来源及许可见 `docs/live2d-assets.md`。
+Live2D 运行库和示例模型受 Live2D 许可约束，仅适合个人/非商业实验；细节见 `docs/live2d-assets.md`。公开本仓库不改变那些第三方条款。
 
 ## 手工验证
 

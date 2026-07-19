@@ -102,7 +102,8 @@ describe("app updater flow", () => {
       assert.equal(checked.canUpdate, true);
       assert.equal(autoUpdater.feed.owner, "baitang-bt");
       assert.equal(autoUpdater.feed.repo, "desktopPet");
-      assert.equal(autoUpdater.feed.private, true);
+      assert.equal(autoUpdater.feed.private, false);
+      assert.equal(autoUpdater.feed.token, "test-token");
 
       const downloaded = await updater.downloadOrInstall();
       assert.equal(downloaded.state, "ready");
@@ -113,6 +114,39 @@ describe("app updater flow", () => {
       assert.ok(statuses.includes("ready"));
     } finally {
       delete process.env.DESKTOP_PET_GH_TOKEN;
+    }
+  });
+
+  it("checks public releases without a GitHub token", async () => {
+    const autoUpdater = createFakeAutoUpdater();
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "desktop-pet-public-"));
+    const previousDesktop = process.env.DESKTOP_PET_GH_TOKEN;
+    const previousGh = process.env.GH_TOKEN;
+    delete process.env.DESKTOP_PET_GH_TOKEN;
+    delete process.env.GH_TOKEN;
+
+    try {
+      const updater = createAppUpdater({
+        app: { getVersion: () => "0.1.0", isPackaged: true },
+        autoUpdater,
+        userDataPath: tempDir
+      });
+      const checked = await updater.checkForUpdates();
+      assert.equal(checked.state, "idle");
+      assert.equal(autoUpdater.feed.private, false);
+      assert.equal(autoUpdater.feed.token, undefined);
+    } finally {
+      if (previousDesktop === undefined) {
+        delete process.env.DESKTOP_PET_GH_TOKEN;
+      } else {
+        process.env.DESKTOP_PET_GH_TOKEN = previousDesktop;
+      }
+      if (previousGh === undefined) {
+        delete process.env.GH_TOKEN;
+      } else {
+        process.env.GH_TOKEN = previousGh;
+      }
+      fs.rmSync(tempDir, { recursive: true, force: true });
     }
   });
 
@@ -128,7 +162,7 @@ describe("app updater flow", () => {
     assert.match(status.message, /开发模式/);
   });
 
-  it("silently skips startup checks when unpackaged or missing token", async () => {
+  it("silently skips startup checks when unpackaged", async () => {
     const unpackaged = createAppUpdater({
       app: { getVersion: () => "0.1.0", isPackaged: false },
       autoUpdater: createFakeAutoUpdater(),
@@ -138,35 +172,6 @@ describe("app updater flow", () => {
     assert.equal(unpackaged.scheduleStartupCheck(0), false);
     const silentUnpackaged = await unpackaged.checkForUpdates({ silent: true });
     assert.equal(silentUnpackaged.state, "idle");
-
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "desktop-pet-silent-"));
-    const previousDesktop = process.env.DESKTOP_PET_GH_TOKEN;
-    const previousGh = process.env.GH_TOKEN;
-    delete process.env.DESKTOP_PET_GH_TOKEN;
-    delete process.env.GH_TOKEN;
-
-    try {
-      const noToken = createAppUpdater({
-        app: { getVersion: () => "0.1.0", isPackaged: true },
-        autoUpdater: createFakeAutoUpdater(),
-        userDataPath: tempDir
-      });
-      const silent = await noToken.checkForUpdates({ silent: true });
-      assert.equal(silent.state, "idle");
-      assert.equal(silent.message, "点击检查更新");
-    } finally {
-      if (previousDesktop === undefined) {
-        delete process.env.DESKTOP_PET_GH_TOKEN;
-      } else {
-        process.env.DESKTOP_PET_GH_TOKEN = previousDesktop;
-      }
-      if (previousGh === undefined) {
-        delete process.env.GH_TOKEN;
-      } else {
-        process.env.GH_TOKEN = previousGh;
-      }
-      fs.rmSync(tempDir, { recursive: true, force: true });
-    }
   });
 
   it("schedules a silent startup check for packaged builds", async () => {
@@ -192,14 +197,9 @@ describe("app updater flow", () => {
       }
     });
 
-    process.env.DESKTOP_PET_GH_TOKEN = "test-token";
-    try {
-      assert.equal(updater.scheduleStartupCheck(), true);
-      assert.deepEqual(delays, [25]);
-      assert.equal(checked, true);
-      assert.equal(updater.getStatus().message, "当前已是最新版本");
-    } finally {
-      delete process.env.DESKTOP_PET_GH_TOKEN;
-    }
+    assert.equal(updater.scheduleStartupCheck(), true);
+    assert.deepEqual(delays, [25]);
+    assert.equal(checked, true);
+    assert.equal(updater.getStatus().message, "当前已是最新版本");
   });
 });

@@ -102,16 +102,16 @@ function createAppUpdater({
   }
 
   function configureFeed() {
+    // 公开仓库不需要 Token；若本地仍有 Token 则一并传入，便于提高 API 限额。
     const token = resolveGithubToken(userDataPath);
     autoUpdater.setFeedURL({
       provider: "github",
       owner: UPDATE_OWNER,
       repo: UPDATE_REPO,
-      private: true,
+      private: false,
       token: token || undefined
     });
     configured = true;
-    return Boolean(token);
   }
 
   async function checkForUpdates(options = {}) {
@@ -128,17 +128,7 @@ function createAppUpdater({
       return getStatus();
     }
 
-    const hasToken = configureFeed();
-    if (!hasToken) {
-      if (!silent) {
-        emit({
-          ...status,
-          state: "error",
-          message: "私有仓库需要 GitHub Token，请设置 DESKTOP_PET_GH_TOKEN 或写入 github-token 文件"
-        });
-      }
-      return getStatus();
-    }
+    configureFeed();
 
     quietErrors = silent;
 

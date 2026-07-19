@@ -1,6 +1,6 @@
 {
   "name": "cursor-desktop-pet",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "private": true,
   "description": "Cross-platform desktop pet experiments for macOS and Windows.",
   "author": "cursor-desktop",
@@ -45,7 +45,7 @@
         "provider": "github",
         "owner": "baitang-bt",
         "repo": "desktopPet",
-        "private": true,
+        "private": false,
         "releaseType": "release"
       }
     ],

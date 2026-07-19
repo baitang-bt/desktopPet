@@ -4,5 +4,13 @@ out/
 .DS_Store
 *.log
 .env
+.env.*
+.env.local
 github-token
-
+*.pem
+*.p12
+*.key
+id_rsa
+id_rsa.pub
+.credentials
+*.credentials.json
