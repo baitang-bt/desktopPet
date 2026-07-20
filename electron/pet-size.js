@@ -9,6 +9,9 @@ const PET_WINDOW_PADDING = { width: 40, height: 90 };
 const PET_SEAT_RATIO = 0.84;
 // 站姿时以接近画布底部的脚底作为窗口下边缘锚点。
 const PET_STAND_RATIO = 0.95;
+// 坐姿吸附时 CSS translateY + Live2D verticalBias 会让角色比锚点更靠下（Win 上尤其明显）。
+const PET_SEAT_SNAP_LIFT_CSS = 12;
+const PET_SEAT_SNAP_LIFT_VISUAL = 44;
 
 function clampPetScale(scale) {
   if (!Number.isFinite(scale)) {
@@ -39,6 +42,12 @@ function getPetStandAnchorOffset(scale) {
   const topPadding = PET_WINDOW_PADDING.height / 2;
 
   return Math.round(topPadding + PET_VISUAL_BASE.height * safeScale * PET_STAND_RATIO);
+}
+
+function getPetSeatSnapLift(scale) {
+  const safeScale = clampPetScale(scale);
+
+  return Math.round(PET_SEAT_SNAP_LIFT_CSS + PET_SEAT_SNAP_LIFT_VISUAL * safeScale);
 }
 
 /**
@@ -82,6 +91,7 @@ module.exports = {
   clampPetXByCenterAxis,
   getPetCenterAxisXLimits,
   getPetSeatAnchorOffset,
+  getPetSeatSnapLift,
   getPetStandAnchorOffset,
   getPetWindowSize
 };

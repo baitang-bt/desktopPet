@@ -43,9 +43,11 @@ const {
   clampPetXByCenterAxis,
   getPetCenterAxisXLimits,
   getPetSeatAnchorOffset,
+  getPetSeatSnapLift,
   getPetStandAnchorOffset,
   getPetWindowSize
 } = require("./pet-size");
+const { normalizeForeignWindowList } = require("./window-bounds");
 const {
   clearOverlay,
   readJsonFile,
@@ -55,9 +57,12 @@ const {
   syncBuiltinCopy,
   validateDialogueCatalog
 } = require("./dialogue-catalog");
-const { applyDialogueCatalog } = require("./screen-awareness-rules");
+const { listDialogueRules } = require("./dialogue-rules");
+const { applyDialogueCatalog, setDialogueDisabledRuleIds } = require("./screen-awareness-rules");
+const { MOTION_TRIGGER_KEYS, MOTION_TRIGGER_LABELS } = require("./motion-triggers");
 const {
   SCHEME: LIVE2D_SCHEME,
+  getModelMotionProfile,
   importModelDirectory,
   removeImportedModel,
   resolveCatalog: resolveLive2dCatalog,
@@ -78,9 +83,9 @@ protocol.registerSchemesAsPrivileged([
   }
 ]);
 
-const SETTINGS_SIZE = { width: 440, height: 560 };
-const SETTINGS_MIN_SIZE = { width: 380, height: 420 };
-const SETTINGS_MAX_SIZE = { width: 720, height: 900 };
+const SETTINGS_SIZE = { width: 520, height: 680 };
+const SETTINGS_MIN_SIZE = { width: 460, height: 520 };
+const SETTINGS_MAX_SIZE = { width: 820, height: 920 };
 const SNAP_PREVIEW_THROTTLE_MS = 120;
 const VELOCITY_SAMPLE_WINDOW_MS = 120;
 const VELOCITY_ESTIMATE_MS = 48;
@@ -383,21 +388,21 @@ function getPetBounds() {
 
 function getSnapPetBounds() {
   const bounds = getPetBounds();
-  const anchorOffsetY = getPetSeatAnchorOffset(
-    stateStore?.getSettings().petSize ?? DEFAULT_PET_SCALE
-  );
-  const standAnchorOffsetY = getPetStandAnchorOffset(
-    stateStore?.getSettings().petSize ?? DEFAULT_PET_SCALE
-  );
+  const petSize = stateStore?.getSettings().petSize ?? DEFAULT_PET_SCALE;
+  const anchorOffsetY = getPetSeatAnchorOffset(petSize);
+  const standAnchorOffsetY = getPetStandAnchorOffset(petSize);
+  const seatSnapLift =
+    process.platform === "win32" ? getPetSeatSnapLift(petSize) : 0;
 
   if (!dragPosition) {
-    return { ...bounds, anchorOffsetY, standAnchorOffsetY };
+    return { ...bounds, anchorOffsetY, standAnchorOffsetY, seatSnapLift };
   }
 
   return {
     ...bounds,
     anchorOffsetY,
     standAnchorOffsetY,
+    seatSnapLift,
     x: dragPosition.x,
     y: dragPosition.y
   };
@@ -461,16 +466,17 @@ async function listOpenWindows() {
   try {
     const windowsModule = await ensureOpenWindowsModule();
     const windows = await windowsModule.openWindows(WINDOW_QUERY_OPTIONS);
+    const normalized = normalizeForeignWindowList(windows, screen);
 
     if (process.env.PET_DEBUG_SNAP) {
       console.log(
         "[snap] windows:",
-        windows.length,
-        JSON.stringify(windows.map((windowInfo) => [windowInfo.owner?.name, windowInfo.bounds]))
+        normalized.length,
+        JSON.stringify(normalized.map((windowInfo) => [windowInfo.owner?.name, windowInfo.bounds]))
       );
     }
 
-    return windows;
+    return normalized;
   } catch (error) {
     if (process.env.PET_DEBUG_SNAP) {
       console.error("[snap] listOpenWindows failed:", error);
@@ -970,15 +976,25 @@ function sendPetReaction(reaction) {
   }
 }
 
+function getMotionOverrides() {
+  return stateStore?.getSettings().motionTriggersByModel ?? {};
+}
+
+function syncDialogueRuleFilters() {
+  setDialogueDisabledRuleIds(stateStore.getSettings().dialogueDisabledRuleIds);
+}
+
 function getLive2dCatalogInfo() {
-  return resolveLive2dCatalog(app.getPath("userData"));
+  return resolveLive2dCatalog(app.getPath("userData"), getMotionOverrides());
 }
 
 function broadcastLive2dCatalog(catalog = getLive2dCatalogInfo()) {
   const payload = {
     defaultModelId: catalog.defaultModelId,
     models: catalog.models,
-    live2dDir: catalog.live2dDir
+    live2dDir: catalog.live2dDir,
+    motionTriggerKeys: MOTION_TRIGGER_KEYS,
+    motionTriggerLabels: MOTION_TRIGGER_LABELS
   };
 
   for (const browserWindow of [petWindow, settingsWindow]) {
@@ -1052,6 +1068,10 @@ function getDialogueInfo() {
   const userDataPath = app.getPath("userData");
   const resolved = resolveActiveCatalog(userDataPath);
   const summary = summarizeCatalog(resolved.catalog);
+  const rules = listDialogueRules(
+    resolved.catalog,
+    stateStore.getSettings().dialogueDisabledRuleIds
+  );
 
   return {
     builtinSourcePath: resolved.builtinSourcePath,
@@ -1060,6 +1080,7 @@ function getDialogueInfo() {
     dialogueDir: resolved.dialogueDir,
     hasOverlay: resolved.hasOverlay,
     summary,
+    rules,
     message: resolved.hasOverlay
       ? `已加载扩展词库（应用 ${summary.appRules} / OCR ${summary.ocrRules}）`
       : `使用内置词库（应用 ${summary.appRules} / OCR ${summary.ocrRules}）`
@@ -1069,6 +1090,7 @@ function getDialogueInfo() {
 function reloadDialogueCatalog() {
   const resolved = resolveActiveCatalog(app.getPath("userData"));
   applyDialogueCatalog(resolved.catalog);
+  syncDialogueRuleFilters();
   return getDialogueInfo();
 }
 
@@ -1452,10 +1474,52 @@ ipcMain.handle("screen-awareness:get-status", () => screenAwarenessController?.g
 ipcMain.handle("cursor-hooks:get-info", () => getCursorHooksInstallInfo());
 ipcMain.handle("cursor-hooks:install", () => installDesktopPetCursorHooks());
 ipcMain.handle("dialogue:get-info", () => getDialogueInfo());
+ipcMain.handle("dialogue:set-rule-enabled", (_event, payload) => {
+  const ruleId = payload?.id;
+  const enabled = Boolean(payload?.enabled);
+
+  if (typeof ruleId !== "string" || !ruleId.trim()) {
+    return getDialogueInfo();
+  }
+
+  const disabled = new Set(stateStore.getSettings().dialogueDisabledRuleIds);
+
+  if (enabled) {
+    disabled.delete(ruleId);
+  } else {
+    disabled.add(ruleId);
+  }
+
+  stateStore.updateSettings({ dialogueDisabledRuleIds: [...disabled] });
+  syncDialogueRuleFilters();
+  return getDialogueInfo();
+});
 ipcMain.handle("dialogue:import", () => importDialogueOverlay());
 ipcMain.handle("dialogue:reveal", (_event, target) => revealDialoguePath(target));
 ipcMain.handle("dialogue:reset", () => resetDialogueOverlay());
 ipcMain.handle("live2d:get-catalog", () => broadcastLive2dCatalog());
+ipcMain.handle("live2d:get-motion-profile", (_event, modelId) =>
+  getModelMotionProfile(app.getPath("userData"), modelId, getMotionOverrides())
+);
+ipcMain.handle("live2d:update-motion-triggers", (_event, payload) => {
+  const modelId = payload?.modelId;
+  const motionTriggers = payload?.motionTriggers;
+
+  if (typeof modelId !== "string" || !modelId.trim() || typeof motionTriggers !== "object") {
+    return { ok: false, error: "无效的动作配置" };
+  }
+
+  const nextOverrides = {
+    ...getMotionOverrides(),
+    [modelId]: motionTriggers
+  };
+
+  stateStore.updateSettings({ motionTriggersByModel: nextOverrides });
+  const catalog = broadcastLive2dCatalog();
+  const profile = getModelMotionProfile(app.getPath("userData"), modelId, nextOverrides);
+
+  return { ok: true, profile, catalog };
+});
 ipcMain.handle("live2d:import", () => importLive2dModel());
 ipcMain.handle("live2d:remove", (_event, modelId) => removeLive2dModel(modelId));
 ipcMain.handle("live2d:reveal", (_event, target) => revealLive2dDir(target));
@@ -1486,6 +1550,14 @@ ipcMain.handle("settings:update", (_event, changes) => {
 
   if (Object.prototype.hasOwnProperty.call(changes, "gravityEnabled") && !settings.gravityEnabled) {
     physicsController?.stop();
+  }
+
+  if (Object.prototype.hasOwnProperty.call(changes, "motionTriggersByModel")) {
+    broadcastLive2dCatalog();
+  }
+
+  if (Object.prototype.hasOwnProperty.call(changes, "dialogueDisabledRuleIds")) {
+    syncDialogueRuleFilters();
   }
 
   if (

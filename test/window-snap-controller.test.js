@@ -84,6 +84,15 @@ describe("window-snap-controller geometry", () => {
     assert.equal(target.snappedPosition.y, windows[1].bounds.y - ANCHOR_OFFSET_Y);
   });
 
+  it("applies seatSnapLift so seated visuals align with the window top edge", () => {
+    const targetBounds = { x: 100, y: 420, width: 600, height: 400 };
+    const pet = { ...PET, anchorOffsetY: 322, seatSnapLift: 56 };
+    const snapped = computeSnappedPosition(pet, targetBounds, "seat");
+
+    assert.equal(snapped.y, 420 - 322 - 56);
+    assert.equal(snapped.offsetY, snapped.y - targetBounds.y);
+  });
+
   it("finds a window bottom edge using the pet foot anchor", () => {
     const targetWindow = {
       id: 13,

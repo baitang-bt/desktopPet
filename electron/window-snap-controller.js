@@ -105,7 +105,12 @@ function computeSnappedPosition(petBounds, targetBounds, mode = "seat") {
     x = seatedCenter - half;
   }
 
-  const y = Math.round(getTargetEdgeY(targetBounds, mode) - getAnchorOffsetY(petBounds, mode));
+  const y =
+    Math.round(
+      getTargetEdgeY(targetBounds, mode) -
+        getAnchorOffsetY(petBounds, mode) -
+        (mode === "seat" ? petBounds.seatSnapLift ?? 0 : 0)
+    );
 
   return {
     x,

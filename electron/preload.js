@@ -35,10 +35,15 @@ contextBridge.exposeInMainWorld("desktopPet", {
   getCursorHooksInfo: () => ipcRenderer.invoke("cursor-hooks:get-info"),
   installCursorHooks: () => ipcRenderer.invoke("cursor-hooks:install"),
   getDialogueInfo: () => ipcRenderer.invoke("dialogue:get-info"),
+  setDialogueRuleEnabled: (id, enabled) =>
+    ipcRenderer.invoke("dialogue:set-rule-enabled", { id, enabled }),
   importDialogue: () => ipcRenderer.invoke("dialogue:import"),
   revealDialogue: (target) => ipcRenderer.invoke("dialogue:reveal", target),
   resetDialogue: () => ipcRenderer.invoke("dialogue:reset"),
   getLive2dCatalog: () => ipcRenderer.invoke("live2d:get-catalog"),
+  getLive2dMotionProfile: (modelId) => ipcRenderer.invoke("live2d:get-motion-profile", modelId),
+  updateLive2dMotionTriggers: (modelId, motionTriggers) =>
+    ipcRenderer.invoke("live2d:update-motion-triggers", { modelId, motionTriggers }),
   importLive2dModel: () => ipcRenderer.invoke("live2d:import"),
   removeLive2dModel: (modelId) => ipcRenderer.invoke("live2d:remove", modelId),
   revealLive2dDir: (target) => ipcRenderer.invoke("live2d:reveal", target),

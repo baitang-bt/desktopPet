@@ -1,6 +1,6 @@
 {
   "name": "cursor-desktop-pet",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "private": true,
   "description": "Cross-platform desktop pet experiments for macOS and Windows.",
   "author": "cursor-desktop",
@@ -11,7 +11,7 @@
   },
   "scripts": {
     "start": "node scripts/start-electron.js",
-    "check": "node --check electron/main.js && node --check electron/preload.js && node --check electron/app-updater.js && node --check electron/agent-hook-status.js && node --check electron/dialogue-catalog.js && node --check electron/live2d-catalog.js && node --check electron/focus-host-window.js && node --check electron/idle-mode-controller.js && node --check electron/pet-physics-controller.js && node --check electron/pet-size.js && node --check electron/screen-awareness-controller.js && node --check electron/screen-awareness-rules.js && node --check electron/state-store.js && node --check electron/window-snap-controller.js && node --check src/pet.js && node --check src/speech-layout.js && node --check src/settings.js && node --check src/live2d/live2d-viewer.js && node --check scripts/start-electron.js && node --test test/*.test.js",
+    "check": "node --check electron/main.js && node --check electron/preload.js && node --check electron/app-updater.js && node --check electron/agent-hook-status.js && node --check electron/dialogue-catalog.js && node --check electron/dialogue-rules.js && node --check electron/live2d-catalog.js && node --check electron/focus-host-window.js && node --check electron/idle-mode-controller.js && node --check electron/motion-triggers.js && node --check electron/pet-physics-controller.js && node --check electron/pet-size.js && node --check electron/screen-awareness-controller.js && node --check electron/screen-awareness-rules.js && node --check electron/state-store.js && node --check electron/window-bounds.js && node --check electron/window-snap-controller.js && node --check src/pet.js && node --check src/speech-layout.js && node --check src/settings.js && node --check src/live2d/live2d-viewer.js && node --check scripts/start-electron.js && node --test test/*.test.js",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win --x64 -c.npmRebuild=false",
     "dist": "electron-builder",

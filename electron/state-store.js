@@ -4,9 +4,10 @@ const {
   DEFAULT_IDLE_THRESHOLD_SECONDS,
   normalizeIdleThresholdSeconds
 } = require("./idle-mode-controller");
-const { DEFAULT_PET_SCALE, clampPetScale } = require("./pet-size");
+const { validateMotionTriggersByModel } = require("./motion-triggers");
+const { validateDisabledRuleIds } = require("./dialogue-rules");
 
-const STATE_VERSION = 2;
+const STATE_VERSION = 3;
 
 const DEFAULT_SETTINGS = {
   alwaysOnTop: true,
@@ -17,7 +18,9 @@ const DEFAULT_SETTINGS = {
   modelId: builtinCatalog.defaultModelId,
   petSize: DEFAULT_PET_SCALE,
   screenAwarenessEnabled: false,
-  agentAlertEnabled: false
+  agentAlertEnabled: false,
+  dialogueDisabledRuleIds: [],
+  motionTriggersByModel: {}
 };
 
 function createStateStore(filePath) {
@@ -76,7 +79,7 @@ function createStateStore(filePath) {
       const settings =
         storedState.version === STATE_VERSION
           ? storedState.settings
-          : { ...storedState.settings, petSize: DEFAULT_PET_SCALE };
+          : migrateSettings(storedState.settings, storedState.version);
 
       return {
         version: STATE_VERSION,
@@ -128,8 +131,28 @@ function validateSettings(settings = {}) {
     petSize:
       typeof settings.petSize === "number" ? clampPetScale(settings.petSize) : DEFAULT_SETTINGS.petSize,
     screenAwarenessEnabled,
-    agentAlertEnabled: Boolean(screenAwarenessEnabled && agentAlertRequested)
+    agentAlertEnabled: Boolean(screenAwarenessEnabled && agentAlertRequested),
+    dialogueDisabledRuleIds: validateDisabledRuleIds(settings.dialogueDisabledRuleIds),
+    motionTriggersByModel: validateMotionTriggersByModel(settings.motionTriggersByModel)
   };
+}
+
+function migrateSettings(settings = {}, version) {
+  const next = { ...DEFAULT_SETTINGS, ...settings };
+
+  if (version === 2) {
+    next.petSize = typeof settings.petSize === "number" ? clampPetScale(settings.petSize) : DEFAULT_PET_SCALE;
+  }
+
+  if (!Array.isArray(next.dialogueDisabledRuleIds)) {
+    next.dialogueDisabledRuleIds = [];
+  }
+
+  if (!next.motionTriggersByModel || typeof next.motionTriggersByModel !== "object") {
+    next.motionTriggersByModel = {};
+  }
+
+  return validateSettings(next);
 }
 
 module.exports = { createStateStore, DEFAULT_SETTINGS };

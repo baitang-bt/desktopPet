@@ -11,179 +11,244 @@
     <link rel="stylesheet" href="./settings.css" />
   </head>
   <body>
-    <main class="settings-menu" aria-label="桌宠设置">
-      <nav class="settings-tabs" aria-label="设置分类">
-        <button class="tab-button is-active" type="button" data-tab="general">常规</button>
-        <button class="tab-button" type="button" data-tab="appearance">外观</button>
-        <button class="tab-button" type="button" data-tab="dialogue">词库</button>
-      </nav>
+    <div class="settings-shell">
+      <aside class="settings-sidebar" aria-label="设置分类">
+        <header class="sidebar-brand">
+          <strong>桌宠设置</strong>
+          <output id="app-version" class="sidebar-version"></output>
+        </header>
+        <nav class="sidebar-nav">
+          <button class="nav-item is-active" type="button" data-tab="general">常规</button>
+          <button class="nav-item" type="button" data-tab="appearance">外观</button>
+          <button class="nav-item" type="button" data-tab="motions">动作</button>
+          <button class="nav-item" type="button" data-tab="dialogue">词库</button>
+        </nav>
+        <footer class="sidebar-footer">
+          <button class="ghost-button" id="reset-settings" type="button">恢复默认</button>
+          <button class="danger-button" id="quit-app" type="button">退出</button>
+        </footer>
+      </aside>
 
-      <div class="settings-content">
+      <main class="settings-main">
         <section class="settings-panel is-active" data-panel="general">
-          <h2 class="section-title">行为</h2>
-          <label class="setting-row">
-            <span class="setting-text">
-              <strong>角色动画</strong>
-              <small>待机、眨眼与视线</small>
-            </span>
-            <span class="switch">
-              <input id="animations-enabled" type="checkbox" />
-              <span class="switch-track" aria-hidden="true"></span>
-            </span>
-          </label>
-          <label class="setting-row">
-            <span class="setting-text">
-              <strong>重力下落</strong>
-              <small>松手后落到地面或窗顶</small>
-            </span>
-            <span class="switch">
-              <input id="gravity-enabled" type="checkbox" />
-              <span class="switch-track" aria-hidden="true"></span>
-            </span>
-          </label>
+          <header class="panel-header">
+            <h1>常规</h1>
+            <p>行为、窗口、感知与更新</p>
+          </header>
 
-          <h2 class="section-title">窗口</h2>
-          <label class="setting-row">
-            <span class="setting-text">
-              <strong>始终置顶</strong>
-              <small>保持在其他窗口上方</small>
-            </span>
-            <span class="switch">
-              <input id="always-on-top" type="checkbox" />
-              <span class="switch-track" aria-hidden="true"></span>
-            </span>
-          </label>
-          <label class="setting-row">
-            <span class="setting-text">
-              <strong>开机自启</strong>
-              <small>登录后自动启动</small>
-            </span>
-            <span class="switch">
-              <input id="launch-at-login" type="checkbox" />
-              <span class="switch-track" aria-hidden="true"></span>
-            </span>
-          </label>
-          <label class="setting-row" for="idle-timeout">
-            <span class="setting-text">
-              <strong>低耗能</strong>
-              <small>闲置后隐藏</small>
-            </span>
-            <select id="idle-timeout" class="setting-control">
-              <option value="30">30 秒</option>
-              <option value="60">60 秒</option>
-              <option value="300">5 分钟</option>
-              <option value="600">10 分钟</option>
-              <option value="1800">30 分钟</option>
-              <option value="3600">60 分钟</option>
-              <option value="7200">120 分钟</option>
-              <option value="0">关闭</option>
-            </select>
-          </label>
+          <div class="card-grid">
+            <article class="card">
+              <h2 class="card-title">行为</h2>
+              <label class="setting-row">
+                <span class="setting-text">
+                  <strong>角色动画</strong>
+                  <small>待机、眨眼与视线</small>
+                </span>
+                <span class="switch">
+                  <input id="animations-enabled" type="checkbox" />
+                  <span class="switch-track" aria-hidden="true"></span>
+                </span>
+              </label>
+              <label class="setting-row">
+                <span class="setting-text">
+                  <strong>重力下落</strong>
+                  <small>松手后落到地面或窗顶</small>
+                </span>
+                <span class="switch">
+                  <input id="gravity-enabled" type="checkbox" />
+                  <span class="switch-track" aria-hidden="true"></span>
+                </span>
+              </label>
+            </article>
 
-          <h2 class="section-title">屏幕感知</h2>
-          <p class="section-hint">
-            开启后本机截屏识别应用与画面，不上传、不落盘。
-          </p>
-          <label class="setting-row">
-            <span class="setting-text">
-              <strong>启用感知</strong>
-              <small id="screen-awareness-status">已关闭</small>
-            </span>
-            <span class="switch">
-              <input id="screen-awareness-enabled" type="checkbox" />
-              <span class="switch-track" aria-hidden="true"></span>
-            </span>
-          </label>
-          <label class="setting-row">
-            <span class="setting-text">
-              <strong>Agent 提醒</strong>
-              <small>权限约 1 秒内提醒；完成靠 Hooks</small>
-            </span>
-            <span class="switch">
-              <input id="agent-alert-enabled" type="checkbox" />
-              <span class="switch-track" aria-hidden="true"></span>
-            </span>
-          </label>
-          <div class="setting-row setting-row--stack">
-            <span class="setting-text">
-              <strong>Cursor Hooks</strong>
-              <small id="cursor-hooks-status">未安装</small>
-            </span>
-            <div class="button-row">
-              <button class="secondary-button" id="install-cursor-hooks" type="button">
-                安装 Agent Hooks
-              </button>
-            </div>
-          </div>
+            <article class="card">
+              <h2 class="card-title">窗口</h2>
+              <label class="setting-row">
+                <span class="setting-text">
+                  <strong>始终置顶</strong>
+                  <small>保持在其他窗口上方</small>
+                </span>
+                <span class="switch">
+                  <input id="always-on-top" type="checkbox" />
+                  <span class="switch-track" aria-hidden="true"></span>
+                </span>
+              </label>
+              <label class="setting-row">
+                <span class="setting-text">
+                  <strong>开机自启</strong>
+                  <small>登录后自动启动</small>
+                </span>
+                <span class="switch">
+                  <input id="launch-at-login" type="checkbox" />
+                  <span class="switch-track" aria-hidden="true"></span>
+                </span>
+              </label>
+              <label class="setting-row" for="idle-timeout">
+                <span class="setting-text">
+                  <strong>低耗能</strong>
+                  <small>闲置后隐藏</small>
+                </span>
+                <select id="idle-timeout" class="setting-control">
+                  <option value="30">30 秒</option>
+                  <option value="60">60 秒</option>
+                  <option value="300">5 分钟</option>
+                  <option value="600">10 分钟</option>
+                  <option value="1800">30 分钟</option>
+                  <option value="3600">60 分钟</option>
+                  <option value="7200">120 分钟</option>
+                  <option value="0">关闭</option>
+                </select>
+              </label>
+            </article>
 
-          <h2 class="section-title">更新</h2>
-          <div class="setting-row setting-row--stack">
-            <span class="setting-text setting-text--split">
-              <strong>版本</strong>
-              <output id="app-version"></output>
-            </span>
-            <p class="update-status" id="update-status">点击检查更新</p>
-            <div class="button-row">
-              <button class="secondary-button" id="check-update" type="button">检查更新</button>
-              <button class="primary-button" id="install-update" type="button" disabled>安装更新</button>
-            </div>
+            <article class="card card--wide">
+              <h2 class="card-title">屏幕感知</h2>
+              <p class="card-hint">开启后本机截屏识别应用与画面，不上传、不落盘。</p>
+              <label class="setting-row">
+                <span class="setting-text">
+                  <strong>启用感知</strong>
+                  <small id="screen-awareness-status">已关闭</small>
+                </span>
+                <span class="switch">
+                  <input id="screen-awareness-enabled" type="checkbox" />
+                  <span class="switch-track" aria-hidden="true"></span>
+                </span>
+              </label>
+              <label class="setting-row">
+                <span class="setting-text">
+                  <strong>Agent 提醒</strong>
+                  <small>权限约 1 秒内提醒；完成靠 Hooks</small>
+                </span>
+                <span class="switch">
+                  <input id="agent-alert-enabled" type="checkbox" />
+                  <span class="switch-track" aria-hidden="true"></span>
+                </span>
+              </label>
+              <div class="setting-row setting-row--stack">
+                <span class="setting-text">
+                  <strong>Cursor Hooks</strong>
+                  <small id="cursor-hooks-status">未安装</small>
+                </span>
+                <button class="secondary-button" id="install-cursor-hooks" type="button">
+                  安装 Agent Hooks
+                </button>
+              </div>
+            </article>
+
+            <article class="card">
+              <h2 class="card-title">更新</h2>
+              <p class="update-status" id="update-status">点击检查更新</p>
+              <div class="button-row">
+                <button class="secondary-button" id="check-update" type="button">检查更新</button>
+                <button class="primary-button" id="install-update" type="button" disabled>
+                  安装更新
+                </button>
+              </div>
+            </article>
           </div>
         </section>
 
         <section class="settings-panel" data-panel="appearance">
-          <h2 class="section-title">角色</h2>
-          <label class="setting-row setting-row--stack" for="pet-model">
-            <span class="setting-text">
-              <strong>Live2D 模型</strong>
-            </span>
-            <select id="pet-model"></select>
-          </label>
-          <div class="button-row">
-            <button class="primary-button" id="import-live2d" type="button">导入模型目录</button>
-            <button class="secondary-button" id="remove-live2d" type="button" disabled>
-              删除导入
-            </button>
+          <header class="panel-header">
+            <h1>外观</h1>
+            <p>Live2D 模型与显示大小</p>
+          </header>
+
+          <div class="card-grid">
+            <article class="card card--wide">
+              <h2 class="card-title">Live2D 模型</h2>
+              <label class="setting-row setting-row--stack" for="pet-model">
+                <span class="setting-text"><strong>当前模型</strong></span>
+                <select id="pet-model" class="setting-control"></select>
+              </label>
+              <div class="button-row">
+                <button class="primary-button" id="import-live2d" type="button">导入模型目录</button>
+                <button class="secondary-button" id="remove-live2d" type="button" disabled>
+                  删除导入
+                </button>
+                <button class="secondary-button" id="reveal-live2d-dir" type="button">
+                  打开目录
+                </button>
+              </div>
+              <p class="card-hint" id="live2d-import-status">可选择含 .model3.json 的文件夹导入</p>
+            </article>
+
+            <article class="card">
+              <h2 class="card-title">显示大小</h2>
+              <div class="setting-row setting-row--stack">
+                <span class="setting-text setting-text--split">
+                  <strong>缩放</strong>
+                  <output id="pet-size-value" for="pet-size"></output>
+                </span>
+                <input id="pet-size" type="range" min="0.3" max="3" step="0.05" />
+              </div>
+            </article>
           </div>
-          <div class="button-row">
-            <button class="secondary-button" id="reveal-live2d-dir" type="button">打开模型目录</button>
+        </section>
+
+        <section class="settings-panel" data-panel="motions">
+          <header class="panel-header">
+            <h1>动作分配</h1>
+            <p>每个触发条件可勾选多个动作组，触发时随机播放其一</p>
+          </header>
+
+          <div class="card card--wide">
+            <div class="setting-row setting-row--stack">
+              <span class="setting-text">
+                <strong>配置模型</strong>
+                <small id="motion-model-label">—</small>
+              </span>
+              <select id="motion-model" class="setting-control"></select>
+            </div>
           </div>
-          <p class="update-status" id="live2d-import-status">可选择含 .model3.json 的文件夹导入</p>
-          <div class="setting-row setting-row--stack">
-            <span class="setting-text setting-text--split">
-              <strong>显示大小</strong>
-              <output id="pet-size-value" for="pet-size"></output>
-            </span>
-            <input id="pet-size" type="range" min="0.3" max="3" step="0.05" />
-          </div>
-          <p class="section-hint">内置模型在 assets/live2d/builtin；导入模型保存在本机用户目录。</p>
+
+          <div id="motion-triggers-root" class="motion-triggers-root"></div>
+          <p class="card-hint" id="motion-triggers-status">加载动作组…</p>
         </section>
 
         <section class="settings-panel" data-panel="dialogue">
-          <h2 class="section-title">对话词库</h2>
-          <p class="section-hint">导入的 JSON 会与内置词库合并；可用其他 AI 生成台词文件。</p>
-          <p class="path-display" id="dialogue-builtin-path" title="">内置路径加载中…</p>
-          <p class="path-display" id="dialogue-overlay-path" title="">扩展：未导入</p>
-          <p class="update-status" id="dialogue-status">使用内置词库</p>
-          <div class="button-row">
-            <button class="secondary-button" id="reveal-dialogue-builtin" type="button">
-              浏览内置
-            </button>
-            <button class="secondary-button" id="reveal-dialogue-dir" type="button">打开目录</button>
-          </div>
-          <div class="button-row">
-            <button class="primary-button" id="import-dialogue" type="button">导入 JSON</button>
-            <button class="secondary-button" id="reset-dialogue" type="button">清除扩展</button>
-          </div>
-        </section>
-      </div>
+          <header class="panel-header">
+            <h1>词库</h1>
+            <p>启用或禁用规则；导入 JSON 与内置词库合并</p>
+          </header>
 
-      <footer class="settings-footer">
-        <div class="button-row">
-          <button class="secondary-button" id="reset-settings" type="button">恢复默认</button>
-          <button class="danger-button" id="quit-app" type="button">退出应用</button>
-        </div>
-      </footer>
-    </main>
+          <div class="card card--wide">
+            <p class="update-status" id="dialogue-status">使用内置词库</p>
+            <p class="path-display" id="dialogue-builtin-path" title="">内置路径加载中…</p>
+            <p class="path-display" id="dialogue-overlay-path" title="">扩展：未导入</p>
+            <div class="button-row">
+              <button class="secondary-button" id="reveal-dialogue-builtin" type="button">
+                浏览内置
+              </button>
+              <button class="secondary-button" id="reveal-dialogue-dir" type="button">打开目录</button>
+              <button class="primary-button" id="import-dialogue" type="button">导入 JSON</button>
+              <button class="secondary-button" id="reset-dialogue" type="button">清除扩展</button>
+            </div>
+          </div>
+
+          <div class="dialogue-toolbar">
+            <label class="toolbar-filter" for="dialogue-filter-category">
+              <span>分类</span>
+              <select id="dialogue-filter-category" class="setting-control">
+                <option value="all">全部</option>
+                <option value="app">应用</option>
+                <option value="ocr">OCR</option>
+                <option value="agent">Agent</option>
+                <option value="vision">画面</option>
+              </select>
+            </label>
+            <input
+              id="dialogue-filter-text"
+              class="setting-control dialogue-search"
+              type="search"
+              placeholder="搜索规则 ID 或匹配词…"
+            />
+          </div>
+
+          <div id="dialogue-rules-root" class="dialogue-rules-root"></div>
+        </section>
+      </main>
+    </div>
     <script src="./settings.js"></script>
   </body>
 </html>

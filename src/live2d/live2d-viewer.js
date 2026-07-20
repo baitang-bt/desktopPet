@@ -4,6 +4,8 @@
   const HIT_ALPHA_THRESHOLD = 24;
   const RANDOM_MOTION_MIN_MS = 14000;
   const RANDOM_MOTION_MAX_MS = 38000;
+  const SIT_IDLE_MOTION_MIN_MS = 10000;
+  const SIT_IDLE_MOTION_MAX_MS = 24000;
   const SEAT_POSES = {
     edge: [
       { horizontalBias: 0, rotation: 0, scaleFactor: 0.92, verticalBias: 0.12 },
@@ -28,6 +30,40 @@
   let seatPoseIndex = 0;
   let seatPlacement = "edge";
   let randomMotionTimer = null;
+  let sitIdleMotionTimer = null;
+
+  function pickTriggerMotionGroup(triggerKey) {
+    const modelConfig = getCurrentModelConfig();
+    const groups = modelConfig?.motionTriggers?.[triggerKey];
+
+    if (Array.isArray(groups) && groups.length > 0) {
+      return groups[Math.floor(Math.random() * groups.length)];
+    }
+
+    if (triggerKey === "tap") {
+      return modelConfig?.tapMotion ?? null;
+    }
+
+    if (triggerKey === "standingIdle" || triggerKey === "startup" || triggerKey === "sitIdle") {
+      const idleGroups = modelConfig?.randomMotions;
+      if (Array.isArray(idleGroups) && idleGroups.length > 0) {
+        return idleGroups[Math.floor(Math.random() * idleGroups.length)];
+      }
+    }
+
+    return null;
+  }
+
+  function playTriggerMotion(triggerKey) {
+    const group = pickTriggerMotionGroup(triggerKey);
+
+    if (!group || !model || isFalling) {
+      return false;
+    }
+
+    model.motion(group);
+    return true;
+  }
 
   function fitModel() {
     if (!application || !model) {
@@ -67,10 +103,25 @@
     }
   }
 
+  function stopSitIdleMotions() {
+    if (sitIdleMotionTimer) {
+      clearTimeout(sitIdleMotionTimer);
+      sitIdleMotionTimer = null;
+    }
+  }
+
   // 立刻停掉当前 Live2D 动作（下落等场景暂不播动作）。
   function stopActiveMotions() {
     stopRandomMotions();
+    stopSitIdleMotions();
     model?.internalModel?.motionManager?.stopAllMotions();
+  }
+
+  function nextSitIdleMotionDelay() {
+    return (
+      SIT_IDLE_MOTION_MIN_MS +
+      Math.floor(Math.random() * (SIT_IDLE_MOTION_MAX_MS - SIT_IDLE_MOTION_MIN_MS + 1))
+    );
   }
 
   function nextRandomMotionDelay() {
@@ -87,22 +138,50 @@
         !isSeated &&
         !isFalling &&
         !document.hidden &&
-        getCurrentModelConfig()?.randomMotions?.length
+        (getCurrentModelConfig()?.motionTriggers?.standingIdle?.length ||
+          getCurrentModelConfig()?.randomMotions?.length)
+    );
+  }
+
+  function canPlaySitIdleMotion() {
+    return Boolean(
+      model &&
+        isAnimationEnabled &&
+        isSeated &&
+        !isFalling &&
+        !document.hidden &&
+        getCurrentModelConfig()?.motionTriggers?.sitIdle?.length
     );
   }
 
   // 站立空闲时随机播动作（伸懒腰、转身等），坐下或关闭动画时不打扰。
   function playRandomMotion() {
-    const modelConfig = getCurrentModelConfig();
-    const groups = modelConfig?.randomMotions;
-
-    if (!canPlayRandomMotion() || !groups?.length) {
+    if (!canPlayRandomMotion()) {
       return false;
     }
 
-    const group = groups[Math.floor(Math.random() * groups.length)];
-    model.motion(group);
-    return true;
+    return playTriggerMotion("standingIdle");
+  }
+
+  function playSitIdleMotion() {
+    if (!canPlaySitIdleMotion()) {
+      return false;
+    }
+
+    return playTriggerMotion("sitIdle");
+  }
+
+  function scheduleSitIdleMotion() {
+    stopSitIdleMotions();
+
+    if (!canPlaySitIdleMotion()) {
+      return;
+    }
+
+    sitIdleMotionTimer = setTimeout(() => {
+      playSitIdleMotion();
+      scheduleSitIdleMotion();
+    }, nextSitIdleMotionDelay());
   }
 
   function scheduleRandomMotion() {
@@ -119,13 +198,11 @@
   }
 
   function playHitReaction(hitAreas) {
-    const modelConfig = getCurrentModelConfig();
-
-    if (isFalling || !modelConfig || hitAreas.length === 0) {
+    if (isFalling || hitAreas.length === 0) {
       return;
     }
 
-    model.motion(modelConfig.tapMotion);
+    playTriggerMotion("tap");
     scheduleRandomMotion();
   }
 
@@ -234,6 +311,7 @@
       fitModel();
       application.render();
       petElement.classList.add("is-loaded");
+      playTriggerMotion("startup");
       scheduleRandomMotion();
 
       if (previousModel) {
@@ -284,8 +362,12 @@
 
     if (isSeated) {
       stopRandomMotions();
-    } else if (!isFalling) {
-      scheduleRandomMotion();
+      scheduleSitIdleMotion();
+    } else {
+      stopSitIdleMotions();
+      if (!isFalling) {
+        scheduleRandomMotion();
+      }
     }
   }
 
@@ -404,11 +486,8 @@
       return;
     }
 
-    const modelConfig = getCurrentModelConfig();
-
-    if (modelConfig) {
-      playConfiguredMotion(modelConfig.tapMotion);
-    }
+    playTriggerMotion("sit");
+    scheduleSitIdleMotion();
   }
 
   function playReactionMotion(motionGroup) {

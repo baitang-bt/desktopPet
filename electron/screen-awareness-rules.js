@@ -250,6 +250,21 @@ let AGENT_APP_PATTERNS = loaded.AGENT_APP_PATTERNS;
 let CHANGE_SPEECHES = loaded.CHANGE_SPEECHES;
 let VISION_SPEECHES = loaded.VISION_SPEECHES;
 let VISION_ENTRIES = loaded.VISION_ENTRIES;
+let DISABLED_RULE_IDS = new Set();
+
+function isRuleEnabled(ruleId) {
+  return Boolean(ruleId) && !DISABLED_RULE_IDS.has(ruleId);
+}
+
+function setDialogueDisabledRuleIds(ruleIds = []) {
+  DISABLED_RULE_IDS = new Set(
+    Array.isArray(ruleIds)
+      ? ruleIds.filter((id) => typeof id === "string" && id.trim())
+      : []
+  );
+  module.exports.DISABLED_RULE_IDS = DISABLED_RULE_IDS;
+  return [...DISABLED_RULE_IDS];
+}
 
 function applyDialogueCatalog(catalog) {
   const next = loadDialogueCatalog(catalog ?? builtinCatalog);
@@ -291,6 +306,10 @@ function matchAgentAlertReaction(ocrText, activeWindow, options = {}) {
   }
 
   for (const rule of AGENT_ALERT_RULES) {
+    if (!isRuleEnabled(rule.id)) {
+      continue;
+    }
+
     if (!matchesWhen(rule.when, context)) {
       continue;
     }
@@ -322,7 +341,7 @@ function buildAgentKindReaction(kind, options = {}) {
   const context = buildContext(options);
   const rule = AGENT_ALERT_RULES.find((entry) => entry.kind === wanted);
 
-  if (!rule || !matchesWhen(rule.when, context)) {
+  if (!rule || !isRuleEnabled(rule.id) || !matchesWhen(rule.when, context)) {
     return null;
   }
 
@@ -345,6 +364,10 @@ function matchRules(haystack, rules, options = {}) {
   const context = buildContext(options);
 
   for (const rule of rules) {
+    if (!isRuleEnabled(rule.id)) {
+      continue;
+    }
+
     if (!matchesWhen(rule.when, context)) {
       continue;
     }
@@ -532,6 +555,10 @@ function analyzeSceneFromBitmap(bitmap, size, options = {}) {
   const metrics = { brightness, warmth, saturation, contrast };
 
   if (brightness < 0.22) {
+    if (!isRuleEnabled("vision:dark")) {
+      return { id: "vision-neutral", source: "vision", speech: null, motionGroup: null, metrics, silent: true };
+    }
+
     return {
       id: "vision-dark",
       source: "vision",
@@ -542,6 +569,10 @@ function analyzeSceneFromBitmap(bitmap, size, options = {}) {
   }
 
   if (contrast > 0.12 && saturation > 0.35) {
+    if (!isRuleEnabled("vision:busy")) {
+      return { id: "vision-neutral", source: "vision", speech: null, motionGroup: null, metrics, silent: true };
+    }
+
     return {
       id: "vision-busy",
       source: "vision",
@@ -552,6 +583,10 @@ function analyzeSceneFromBitmap(bitmap, size, options = {}) {
   }
 
   if (warmth > 0.08 && brightness > 0.35) {
+    if (!isRuleEnabled("vision:warm")) {
+      return { id: "vision-neutral", source: "vision", speech: null, motionGroup: null, metrics, silent: true };
+    }
+
     return {
       id: "vision-warm",
       source: "vision",
@@ -562,6 +597,10 @@ function analyzeSceneFromBitmap(bitmap, size, options = {}) {
   }
 
   if (brightness > 0.72 && saturation < 0.2) {
+    if (!isRuleEnabled("vision:bright")) {
+      return { id: "vision-neutral", source: "vision", speech: null, motionGroup: null, metrics, silent: true };
+    }
+
     return {
       id: "vision-bright",
       source: "vision",
@@ -572,6 +611,10 @@ function analyzeSceneFromBitmap(bitmap, size, options = {}) {
   }
 
   if (saturation < 0.08 && brightness > 0.25 && brightness < 0.65) {
+    if (!isRuleEnabled("vision:plain")) {
+      return { id: "vision-neutral", source: "vision", speech: null, motionGroup: null, metrics, silent: true };
+    }
+
     return {
       id: "vision-plain",
       source: "vision",
@@ -630,5 +673,6 @@ module.exports = {
   normalizeHaystack,
   pickSpeech,
   pickSpeechForEntry,
-  resolveTimeOfDay
+  resolveTimeOfDay,
+  setDialogueDisabledRuleIds
 };

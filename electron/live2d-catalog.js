@@ -2,6 +2,9 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const {
+  resolveMotionTriggers
+} = require("./motion-triggers");
 const builtinCatalog = require("../assets/live2d/models.json");
 
 const SCHEME = "pet-model";
@@ -57,6 +60,59 @@ function toModelUrl(source, folder, modelFile) {
   return `${SCHEME}://${source}/${rel}`;
 }
 
+function readModelMotionGroups(model3Path) {
+  try {
+    const model3 = JSON.parse(fs.readFileSync(model3Path, "utf8"));
+    const motions = model3?.FileReferences?.Motions ?? {};
+
+    return Object.entries(motions).map(([group, entries]) => ({
+      group,
+      count: Array.isArray(entries) ? entries.length : 0,
+      motions: (Array.isArray(entries) ? entries : []).map((entry, index) => ({
+        index,
+        name: entry?.Name || path.basename(entry?.File ?? "", ".motion3.json") || `${group}-${index + 1}`,
+        file: entry?.File ?? null
+      }))
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function resolveModel3Path(model, userDataPath) {
+  const root =
+    model.source === "imported"
+      ? getImportedRoot(userDataPath)
+      : model.source === "builtin"
+        ? getBuiltinRoot()
+        : null;
+
+  if (!root) {
+    return null;
+  }
+
+  return path.join(root, model.folder ?? model.id, model.modelFile);
+}
+
+function enrichModelEntry(entry, userDataPath, motionOverrides = null) {
+  const normalized =
+    entry.source === "imported" ? normalizeImportedModel(entry) : normalizeBuiltinModel(entry);
+  const model3Path = resolveModel3Path(normalized, userDataPath);
+  const motionGroups = model3Path ? readModelMotionGroups(model3Path) : [];
+  const motionTriggers = resolveMotionTriggers(
+    { ...normalized, motionGroups },
+    motionOverrides
+  );
+
+  return {
+    ...normalized,
+    motionGroups,
+    motionTriggers,
+    tapMotion: motionTriggers.tap[0] ?? normalized.tapMotion,
+    randomMotions: motionTriggers.standingIdle
+  };
+}
+
 function normalizeBuiltinModel(entry) {
   return {
     id: entry.id,
@@ -110,9 +166,13 @@ function writeImportedIndex(userDataPath, models) {
   );
 }
 
-function resolveCatalog(userDataPath) {
-  const builtinModels = (builtinCatalog.models ?? []).map(normalizeBuiltinModel);
-  const importedModels = readImportedIndex(userDataPath).map(normalizeImportedModel);
+function resolveCatalog(userDataPath, motionOverrides = null) {
+  const builtinModels = (builtinCatalog.models ?? []).map((entry) =>
+    enrichModelEntry(entry, userDataPath, motionOverrides)
+  );
+  const importedModels = readImportedIndex(userDataPath).map((entry) =>
+    enrichModelEntry(entry, userDataPath, motionOverrides)
+  );
   const models = [...builtinModels, ...importedModels];
   const ids = new Set(models.map((model) => model.id));
 
@@ -290,18 +350,38 @@ function removeImportedModel(userDataPath, modelId) {
   return { ok: true, catalog: resolveCatalog(userDataPath) };
 }
 
+function getModelMotionProfile(userDataPath, modelId, motionOverrides = null) {
+  const catalog = resolveCatalog(userDataPath, motionOverrides);
+  const model = catalog.models.find((entry) => entry.id === modelId);
+
+  if (!model) {
+    return null;
+  }
+
+  return {
+    id: model.id,
+    name: model.name,
+    motionGroups: model.motionGroups,
+    motionTriggers: model.motionTriggers
+  };
+}
+
 module.exports = {
   SCHEME,
   builtinCatalog,
   detectMotionDefaults,
+  enrichModelEntry,
   findModel3JsonFiles,
   getBuiltinRoot,
   getImportedIndexPath,
   getImportedRoot,
   getLive2dUserRoot,
+  getModelMotionProfile,
   importModelDirectory,
+  readModelMotionGroups,
   removeImportedModel,
   resolveCatalog,
+  resolveModel3Path,
   resolveModelPathFromUrl,
   slugifyId,
   toModelUrl

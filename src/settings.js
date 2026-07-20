@@ -9,7 +9,17 @@ const DEFAULT_SETTINGS = {
   modelId: "haru",
   petSize: 1,
   screenAwarenessEnabled: false,
-  agentAlertEnabled: false
+  agentAlertEnabled: false,
+  dialogueDisabledRuleIds: [],
+  motionTriggersByModel: {}
+};
+
+const MOTION_TRIGGER_HINTS = {
+  startup: "模型加载完成后播放一次",
+  standingIdle: "站立时按间隔随机播放",
+  sit: "吸附到窗沿或坐下时播放",
+  sitIdle: "保持坐姿时按间隔随机播放",
+  tap: "点击角色时播放"
 };
 
 const quitButton = document.querySelector("#quit-app");
@@ -29,6 +39,9 @@ const installCursorHooksButton = document.querySelector("#install-cursor-hooks")
 const dialogueBuiltinPath = document.querySelector("#dialogue-builtin-path");
 const dialogueOverlayPath = document.querySelector("#dialogue-overlay-path");
 const dialogueStatus = document.querySelector("#dialogue-status");
+const dialogueRulesRoot = document.querySelector("#dialogue-rules-root");
+const dialogueFilterCategory = document.querySelector("#dialogue-filter-category");
+const dialogueFilterText = document.querySelector("#dialogue-filter-text");
 const revealDialogueBuiltinButton = document.querySelector("#reveal-dialogue-builtin");
 const revealDialogueDirButton = document.querySelector("#reveal-dialogue-dir");
 const importDialogueButton = document.querySelector("#import-dialogue");
@@ -36,6 +49,10 @@ const resetDialogueButton = document.querySelector("#reset-dialogue");
 const idleTimeoutSelect = document.querySelector("#idle-timeout");
 const launchAtLoginInput = document.querySelector("#launch-at-login");
 const modelSelect = document.querySelector("#pet-model");
+const motionModelSelect = document.querySelector("#motion-model");
+const motionModelLabel = document.querySelector("#motion-model-label");
+const motionTriggersRoot = document.querySelector("#motion-triggers-root");
+const motionTriggersStatus = document.querySelector("#motion-triggers-status");
 const petSizeSlider = document.querySelector("#pet-size");
 const petSizeValue = document.querySelector("#pet-size-value");
 const importLive2dButton = document.querySelector("#import-live2d");
@@ -46,9 +63,17 @@ const tabButtons = document.querySelectorAll("[data-tab]");
 const settingsPanels = document.querySelectorAll("[data-panel]");
 
 let settings = { ...DEFAULT_SETTINGS };
-let live2dCatalog = { models: [], defaultModelId: "haru" };
+let live2dCatalog = {
+  models: [],
+  defaultModelId: "haru",
+  motionTriggerKeys: ["startup", "standingIdle", "sit", "sitIdle", "tap"],
+  motionTriggerLabels: {}
+};
+let dialogueRules = [];
+let motionProfile = null;
 let sizeUpdateTimer = null;
 let statusPollTimer = null;
+let motionSaveTimer = null;
 
 async function initialize() {
   await refreshLive2dCatalog();
@@ -58,17 +83,23 @@ async function initialize() {
   await refreshScreenAwarenessStatus();
   await refreshCursorHooksInfo();
   await refreshDialogueInfo();
+  await refreshMotionProfile(motionModelSelect.value || settings.modelId);
+
   window.desktopPet.onSettingsChanged((updatedSettings) => {
     settings = updatedSettings;
     renderSettings();
     void refreshScreenAwarenessStatus();
     void refreshCursorHooksInfo();
   });
+
   window.desktopPet.onLive2dCatalogChanged?.((catalog) => {
     applyLive2dCatalog(catalog);
+    void refreshMotionProfile(motionModelSelect.value || settings.modelId);
   });
+
   window.desktopPet.onUpdateStatusChanged(renderUpdateStatus);
   window.desktopPet.onScreenAwarenessStatusChanged?.(renderScreenAwarenessStatus);
+
   statusPollTimer = setInterval(() => {
     void refreshScreenAwarenessStatus();
     void refreshCursorHooksInfo();
@@ -82,6 +113,7 @@ function applyLive2dCatalog(catalog) {
 
   live2dCatalog = catalog;
   populateModelOptions();
+  populateMotionModelOptions();
   renderLive2dActions();
 }
 
@@ -110,6 +142,23 @@ function populateModelOptions() {
     : live2dCatalog.defaultModelId;
 }
 
+function populateMotionModelOptions() {
+  const previous = motionModelSelect.value;
+  motionModelSelect.replaceChildren();
+
+  for (const model of live2dCatalog.models ?? []) {
+    const option = document.createElement("option");
+    option.value = model.id;
+    option.textContent = model.source === "imported" ? `${model.name}（导入）` : model.name;
+    motionModelSelect.append(option);
+  }
+
+  const preferred = previous || settings.modelId || live2dCatalog.defaultModelId;
+  motionModelSelect.value = live2dCatalog.models.some((model) => model.id === preferred)
+    ? preferred
+    : live2dCatalog.defaultModelId;
+}
+
 function renderLive2dActions() {
   const selected = live2dCatalog.models.find((model) => model.id === modelSelect.value);
   if (removeLive2dButton) {
@@ -127,7 +176,9 @@ function renderSettings() {
   idleTimeoutSelect.value = String(settings.idleTimeoutSeconds);
   launchAtLoginInput.checked = settings.launchAtLogin;
   populateModelOptions();
+  populateMotionModelOptions();
   modelSelect.value = settings.modelId;
+  motionModelSelect.value = settings.modelId;
   petSizeSlider.value = settings.petSize;
   petSizeValue.textContent = `${Math.round(settings.petSize * 100)}%`;
   renderLive2dActions();
@@ -188,6 +239,8 @@ function renderDialogueInfo(info) {
     return;
   }
 
+  dialogueRules = info.rules ?? [];
+
   if (dialogueBuiltinPath) {
     dialogueBuiltinPath.textContent = `内置：${info.builtinBrowsePath ?? info.builtinSourcePath ?? "—"}`;
     dialogueBuiltinPath.title = info.builtinBrowsePath ?? info.builtinSourcePath ?? "";
@@ -207,6 +260,8 @@ function renderDialogueInfo(info) {
   if (resetDialogueButton) {
     resetDialogueButton.disabled = !info.hasOverlay;
   }
+
+  renderDialogueRules();
 }
 
 async function refreshDialogueInfo() {
@@ -215,6 +270,211 @@ async function refreshDialogueInfo() {
   }
 
   renderDialogueInfo(await window.desktopPet.getDialogueInfo());
+}
+
+function getFilteredDialogueRules() {
+  const category = dialogueFilterCategory?.value ?? "all";
+  const query = (dialogueFilterText?.value ?? "").trim().toLowerCase();
+
+  return dialogueRules.filter((rule) => {
+    if (category !== "all" && rule.category !== category) {
+      return false;
+    }
+
+    if (!query) {
+      return true;
+    }
+
+    const haystack = `${rule.id} ${rule.label} ${rule.patternPreview}`.toLowerCase();
+    return haystack.includes(query);
+  });
+}
+
+function renderDialogueRules() {
+  if (!dialogueRulesRoot) {
+    return;
+  }
+
+  const rules = getFilteredDialogueRules();
+  dialogueRulesRoot.replaceChildren();
+
+  if (rules.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "card-hint";
+    empty.textContent = "没有匹配的规则。";
+    dialogueRulesRoot.append(empty);
+    return;
+  }
+
+  for (const rule of rules) {
+    const row = document.createElement("label");
+    row.className = `dialogue-rule${rule.enabled ? "" : " is-disabled"}`;
+
+    const toggle = document.createElement("input");
+    toggle.type = "checkbox";
+    toggle.checked = rule.enabled;
+    toggle.addEventListener("change", async () => {
+      const info = await window.desktopPet.setDialogueRuleEnabled(rule.id, toggle.checked);
+      renderDialogueInfo(info);
+    });
+
+    const main = document.createElement("div");
+    main.className = "dialogue-rule-main";
+
+    const head = document.createElement("div");
+    head.className = "dialogue-rule-head";
+
+    const title = document.createElement("strong");
+    title.textContent = rule.label;
+
+    const badge = document.createElement("span");
+    badge.className = "badge";
+    badge.textContent = rule.categoryLabel;
+
+    head.append(title, badge);
+
+    const pattern = document.createElement("small");
+    pattern.textContent = rule.patternPreview
+      ? `匹配：${rule.patternPreview}`
+      : `台词池 ${rule.speechCount} 条`;
+
+    main.append(head, pattern);
+    row.append(toggle, main);
+    dialogueRulesRoot.append(row);
+  }
+}
+
+async function refreshMotionProfile(modelId) {
+  if (!window.desktopPet.getLive2dMotionProfile || !modelId) {
+    return;
+  }
+
+  motionProfile = await window.desktopPet.getLive2dMotionProfile(modelId);
+  const model = live2dCatalog.models.find((entry) => entry.id === modelId);
+
+  if (motionModelLabel) {
+    motionModelLabel.textContent = model ? `${model.name} · ${motionProfile?.motionGroups?.length ?? 0} 组动作` : "—";
+  }
+
+  renderMotionTriggers();
+}
+
+function renderMotionTriggers() {
+  if (!motionTriggersRoot) {
+    return;
+  }
+
+  motionTriggersRoot.replaceChildren();
+
+  if (!motionProfile) {
+    if (motionTriggersStatus) {
+      motionTriggersStatus.textContent = "无法加载动作配置。";
+    }
+    return;
+  }
+
+  const groups = motionProfile.motionGroups ?? [];
+  const labels = live2dCatalog.motionTriggerLabels ?? {};
+  const keys = live2dCatalog.motionTriggerKeys ?? Object.keys(MOTION_TRIGGER_HINTS);
+
+  if (groups.length === 0) {
+    if (motionTriggersStatus) {
+      motionTriggersStatus.textContent = "当前模型没有可分配的动作组。";
+    }
+    return;
+  }
+
+  if (motionTriggersStatus) {
+    motionTriggersStatus.textContent = "勾选一个触发条件下的多个动作组；触发时会随机播放其中一个。";
+  }
+
+  for (const triggerKey of keys) {
+    const card = document.createElement("article");
+    card.className = "trigger-card";
+
+    const title = document.createElement("h3");
+    title.textContent = labels[triggerKey] ?? triggerKey;
+
+    const hint = document.createElement("p");
+    hint.textContent = MOTION_TRIGGER_HINTS[triggerKey] ?? "";
+
+    const chipGrid = document.createElement("div");
+    chipGrid.className = "chip-grid";
+
+    const selected = new Set(motionProfile.motionTriggers?.[triggerKey] ?? []);
+
+    for (const groupEntry of groups) {
+      const chip = document.createElement("label");
+      chip.className = `motion-chip${selected.has(groupEntry.group) ? " is-selected" : ""}`;
+      chip.dataset.group = groupEntry.group;
+
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = selected.has(groupEntry.group);
+      checkbox.addEventListener("change", () => {
+        chip.classList.toggle("is-selected", checkbox.checked);
+        queueMotionTriggerSave();
+      });
+
+      const text = document.createElement("span");
+      text.textContent =
+        groupEntry.count > 1
+          ? `${groupEntry.group}（${groupEntry.count}）`
+          : groupEntry.group;
+
+      chip.append(checkbox, text);
+      chipGrid.append(chip);
+    }
+
+    card.append(title, hint, chipGrid);
+    motionTriggersRoot.append(card);
+  }
+}
+
+function collectMotionTriggersFromUi() {
+  const result = {};
+  const cards = motionTriggersRoot?.querySelectorAll(".trigger-card") ?? [];
+  const keys = live2dCatalog.motionTriggerKeys ?? [];
+
+  cards.forEach((card, index) => {
+    const triggerKey = keys[index];
+    if (!triggerKey) {
+      return;
+    }
+
+    const groups = [...card.querySelectorAll(".motion-chip input:checked")]
+      .map((input) => input.closest(".motion-chip")?.dataset.group)
+      .filter(Boolean);
+
+    if (groups.length > 0) {
+      result[triggerKey] = groups;
+    }
+  });
+
+  return result;
+}
+
+function queueMotionTriggerSave() {
+  clearTimeout(motionSaveTimer);
+  motionSaveTimer = setTimeout(async () => {
+    const modelId = motionModelSelect.value;
+    const motionTriggers = collectMotionTriggersFromUi();
+    const result = await window.desktopPet.updateLive2dMotionTriggers(modelId, motionTriggers);
+
+    if (result?.profile) {
+      motionProfile = result.profile;
+    }
+
+    if (result?.catalog) {
+      applyLive2dCatalog(result.catalog);
+    }
+
+    if (motionTriggersStatus) {
+      motionTriggersStatus.textContent = result?.ok
+        ? "动作分配已保存。"
+        : result?.error ?? "保存失败";
+    }
+  }, 180);
 }
 
 function selectTab(tabName) {
@@ -311,6 +571,8 @@ importDialogueButton?.addEventListener("click", async () => {
 resetDialogueButton?.addEventListener("click", async () => {
   renderDialogueInfo(await window.desktopPet.resetDialogue());
 });
+dialogueFilterCategory?.addEventListener("change", renderDialogueRules);
+dialogueFilterText?.addEventListener("input", renderDialogueRules);
 idleTimeoutSelect.addEventListener("change", () =>
   updateSettings({ idleTimeoutSeconds: Number(idleTimeoutSelect.value) })
 );
@@ -319,7 +581,13 @@ launchAtLoginInput.addEventListener("change", () =>
 );
 modelSelect.addEventListener("change", () => {
   renderLive2dActions();
-  updateSettings({ modelId: modelSelect.value });
+  updateSettings({ modelId: modelSelect.value }).then(() => {
+    motionModelSelect.value = modelSelect.value;
+    void refreshMotionProfile(modelSelect.value);
+  });
+});
+motionModelSelect?.addEventListener("change", () => {
+  void refreshMotionProfile(motionModelSelect.value);
 });
 importLive2dButton?.addEventListener("click", async () => {
   importLive2dButton.disabled = true;
@@ -334,6 +602,8 @@ importLive2dButton?.addEventListener("click", async () => {
       live2dImportStatus.textContent = `已导入：${result.model?.name ?? result.model?.id}`;
       if (result.model?.id) {
         await updateSettings({ modelId: result.model.id });
+        motionModelSelect.value = result.model.id;
+        await refreshMotionProfile(result.model.id);
       }
     } else if (!result?.canceled) {
       live2dImportStatus.textContent = result?.error ?? "导入失败";
@@ -352,6 +622,8 @@ removeLive2dButton?.addEventListener("click", async () => {
 
   if (result?.ok) {
     await updateSettings({ modelId: live2dCatalog.defaultModelId });
+    motionModelSelect.value = live2dCatalog.defaultModelId;
+    await refreshMotionProfile(live2dCatalog.defaultModelId);
     if (live2dImportStatus) {
       live2dImportStatus.textContent = "已删除导入模型";
     }
