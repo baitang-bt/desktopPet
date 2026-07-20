@@ -6,6 +6,7 @@ const {
 } = require("./idle-mode-controller");
 const { validateMotionTriggersByModel } = require("./motion-triggers");
 const { validateDisabledRuleIds } = require("./dialogue-rules");
+const { DEFAULT_PET_SCALE, clampPetScale } = require("./pet-size");
 
 const STATE_VERSION = 3;
 
