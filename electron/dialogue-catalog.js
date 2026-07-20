@@ -53,6 +53,7 @@ function validateDialogueCatalog(catalog) {
 
   const hasContent =
     Array.isArray(catalog.app) ||
+    Array.isArray(catalog.appNamed) ||
     Array.isArray(catalog.ocr) ||
     isPlainObject(catalog.change) ||
     isPlainObject(catalog.vision) ||
@@ -177,6 +178,7 @@ function mergeDialogueCatalog(base, overlay) {
   const merged = structuredClone(base);
   merged.version = overlay.version ?? base.version ?? 1;
   merged.app = mergeRuleLists(base.app, overlay.app);
+  merged.appNamed = mergeRuleLists(base.appNamed, overlay.appNamed);
   merged.ocr = mergeRuleLists(base.ocr, overlay.ocr);
 
   merged.change = {
@@ -219,18 +221,46 @@ function loadOverlay(userDataPath) {
   return readJsonFile(overlayPath);
 }
 
-function resolveActiveCatalog(userDataPath) {
+function resolveActiveCatalog(userDataPath, sourceOptions = {}) {
+  const useBuiltin = sourceOptions.useBuiltin !== false;
+  const useOverlay = sourceOptions.useOverlay !== false;
   const overlay = loadOverlay(userDataPath);
   const hasOverlay = Boolean(overlay);
-  const catalog = hasOverlay ? mergeDialogueCatalog(builtinCatalog, overlay) : structuredClone(builtinCatalog);
+  let catalog;
+
+  if (!useBuiltin && !useOverlay) {
+    catalog = createEmptyCatalog();
+  } else if (!useBuiltin) {
+    catalog = hasOverlay ? structuredClone(overlay) : createEmptyCatalog();
+  } else if (!useOverlay) {
+    catalog = structuredClone(builtinCatalog);
+  } else if (hasOverlay) {
+    catalog = mergeDialogueCatalog(builtinCatalog, overlay);
+  } else {
+    catalog = structuredClone(builtinCatalog);
+  }
 
   return {
     catalog,
     hasOverlay,
+    useBuiltin,
+    useOverlay,
     builtinSourcePath: getBuiltinSourcePath(),
     builtinBrowsePath: syncBuiltinCopy(userDataPath),
     overlayPath: getOverlayPath(userDataPath),
     dialogueDir: getDialogueDir(userDataPath)
+  };
+}
+
+function createEmptyCatalog() {
+  return {
+    version: 1,
+    app: [],
+    appNamed: [],
+    ocr: [],
+    change: { app: [], appNamed: [], scene: [], variants: {} },
+    vision: {},
+    agent: { appPatterns: [], alerts: [] }
   };
 }
 
@@ -260,10 +290,29 @@ function clearOverlay(userDataPath) {
 function summarizeCatalog(catalog) {
   return {
     appRules: catalog.app?.length ?? 0,
+    appNamedRules: catalog.appNamed?.length ?? 0,
     ocrRules: catalog.ocr?.length ?? 0,
     agentAlerts: catalog.agent?.alerts?.length ?? 0,
     visionKeys: Object.keys(catalog.vision ?? {}).length
   };
+}
+
+function collectRuleIds(catalog) {
+  const ids = new Set();
+
+  for (const list of [catalog.app, catalog.appNamed, catalog.ocr, catalog.agent?.alerts]) {
+    for (const rule of list ?? []) {
+      if (rule?.id) {
+        ids.add(rule.id);
+      }
+    }
+  }
+
+  for (const key of Object.keys(catalog.vision ?? {})) {
+    ids.add(`vision:${key}`);
+  }
+
+  return ids;
 }
 
 module.exports = {
@@ -271,10 +320,13 @@ module.exports = {
   OVERLAY_NAME,
   builtinCatalog,
   clearOverlay,
+  collectRuleIds,
+  createEmptyCatalog,
   getBuiltinCopyPath,
   getBuiltinSourcePath,
   getDialogueDir,
   getOverlayPath,
+  loadOverlay,
   mergeDialogueCatalog,
   readJsonFile,
   resolveActiveCatalog,

@@ -47,6 +47,37 @@ function compileRule(rule, source) {
   };
 }
 
+function compileAppNamedRule(rule, source) {
+  const names = [
+    ...(Array.isArray(rule.names) ? rule.names : []),
+    ...(typeof rule.appName === "string" ? [rule.appName] : [])
+  ]
+    .map((name) => String(name).trim())
+    .filter(Boolean);
+
+  return {
+    id: rule.id,
+    source: rule.source ?? source,
+    kind: rule.kind,
+    notificationTitle: rule.notificationTitle,
+    motionGroup: rule.motionGroup,
+    speeches: rule.speeches ?? [],
+    when: rule.when ?? null,
+    variants: Array.isArray(rule.variants) ? rule.variants : [],
+    names
+  };
+}
+
+function ownerNameMatchesRule(ownerName, rule) {
+  const normalizedOwner = String(ownerName ?? "").trim().toLowerCase();
+
+  if (!normalizedOwner) {
+    return false;
+  }
+
+  return (rule.names ?? []).some((name) => name.trim().toLowerCase() === normalizedOwner);
+}
+
 function hourInRange(hour, start, end) {
   if (start === end) {
     return hour === start;
@@ -213,6 +244,7 @@ function activeWindowKey(activeWindow) {
 }
 
 function loadDialogueCatalog(catalog = dialogueCatalog) {
+  const appNamed = (catalog.appNamed ?? []).map((rule) => compileAppNamedRule(rule, "appNamed"));
   const app = (catalog.app ?? []).map((rule) => compileRule(rule, "app"));
   const ocr = (catalog.ocr ?? []).map((rule) => compileRule(rule, "ocr"));
   const agentAlerts = (catalog.agent?.alerts ?? []).map((rule) => compileRule(rule, "agent"));
@@ -227,6 +259,7 @@ function loadDialogueCatalog(catalog = dialogueCatalog) {
 
   return {
     catalog,
+    APP_NAMED_RULES: appNamed,
     APP_RULES: app,
     OCR_RULES: ocr,
     AGENT_ALERT_RULES: agentAlerts,
@@ -243,6 +276,7 @@ function loadDialogueCatalog(catalog = dialogueCatalog) {
 }
 
 const loaded = loadDialogueCatalog(dialogueCatalog);
+let APP_NAMED_RULES = loaded.APP_NAMED_RULES;
 let APP_RULES = loaded.APP_RULES;
 let OCR_RULES = loaded.OCR_RULES;
 let AGENT_ALERT_RULES = loaded.AGENT_ALERT_RULES;
@@ -268,6 +302,7 @@ function setDialogueDisabledRuleIds(ruleIds = []) {
 
 function applyDialogueCatalog(catalog) {
   const next = loadDialogueCatalog(catalog ?? builtinCatalog);
+  APP_NAMED_RULES = next.APP_NAMED_RULES;
   APP_RULES = next.APP_RULES;
   OCR_RULES = next.OCR_RULES;
   AGENT_ALERT_RULES = next.AGENT_ALERT_RULES;
@@ -276,6 +311,7 @@ function applyDialogueCatalog(catalog) {
   VISION_SPEECHES = next.VISION_SPEECHES;
   VISION_ENTRIES = next.VISION_ENTRIES;
 
+  module.exports.APP_NAMED_RULES = APP_NAMED_RULES;
   module.exports.APP_RULES = APP_RULES;
   module.exports.OCR_RULES = OCR_RULES;
   module.exports.AGENT_ALERT_RULES = AGENT_ALERT_RULES;
@@ -387,8 +423,44 @@ function matchRules(haystack, rules, options = {}) {
   return null;
 }
 
+function matchAppNamedReaction(activeWindow, options = {}) {
+  const ownerName = activeWindow?.owner?.name?.trim();
+
+  if (!ownerName) {
+    return null;
+  }
+
+  const context = buildContext(options);
+
+  for (const rule of APP_NAMED_RULES) {
+    if (!isRuleEnabled(rule.id)) {
+      continue;
+    }
+
+    if (!matchesWhen(rule.when, context)) {
+      continue;
+    }
+
+    if (!ownerNameMatchesRule(ownerName, rule)) {
+      continue;
+    }
+
+    return {
+      id: rule.id,
+      source: "appNamed",
+      speech: pickSpeechForEntry(rule, context),
+      motionGroup: rule.motionGroup
+    };
+  }
+
+  return null;
+}
+
 function matchAppReaction(activeWindow, options = {}) {
-  return matchRules(normalizeHaystack(activeWindow), APP_RULES, options);
+  return (
+    matchAppNamedReaction(activeWindow, options) ??
+    matchRules(normalizeHaystack(activeWindow), APP_RULES, options)
+  );
 }
 
 function matchOcrReaction(ocrText, options = {}) {
@@ -650,6 +722,7 @@ function mergeReactions({
 module.exports = {
   AGENT_ALERT_RULES,
   AGENT_APP_PATTERNS,
+  APP_NAMED_RULES,
   APP_RULES,
   CHANGE_SPEECHES,
   OCR_RULES,

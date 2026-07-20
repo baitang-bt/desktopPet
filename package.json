@@ -1,6 +1,6 @@
 {
   "name": "cursor-desktop-pet",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "private": true,
   "description": "Cross-platform desktop pet experiments for macOS and Windows.",
   "author": "cursor-desktop",

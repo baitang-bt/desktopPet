@@ -4,6 +4,8 @@
     "purpose": "桌宠情景对话词库。可用其他 AI 增删 speeches / variants，并扩展 when 条件。",
     "fields": {
       "patterns": "字符串默认忽略大小写；或 { pattern, flags }。匹配应用名+窗口标题，或 OCR 文本。",
+      "appNamed": "按前台应用显示名精确匹配（见下方 appNamed 数组）。names 为字符串数组，忽略大小写；比 app 的 patterns 更精确，且优先匹配。",
+      "appName": "appNamed 单名称写法，等价于 names: [\"某应用\"]",
       "when": {
         "timeOfDay": "morning(5-11) | noon(11-14) | afternoon(14-18) | evening(18-22) | night(22-5)",
         "hours": "0-23 的小时列表",
@@ -16,9 +18,88 @@
       "variants": "同情景下按 when 优先选用的台词组；都不匹配则用 speeches",
       "placeholders": "change.appNamed 可用 {name} 插入应用名"
     },
-    "tip": "更具体的规则请放在数组更前面（先匹配先生效）。",
+    "sources": {
+      "builtin": "本文件为内置词库，设置里可单独开关「使用内置词库」",
+      "overlay": "导入 JSON 写入 pet-dialogue.overlay.json，与内置合并；可单独开关「使用导入词库」"
+    },
+    "tip": "更具体的规则请放在数组更前面（先匹配先生效）。appNamed 优先于 app 的 patterns 模糊匹配。",
     "agentLimits": "完成态优先用 Cursor Hooks（stop）推送；请求态仍可能靠 OCR（Needs attention 等）。没有官方 IDE Agent 查询接口，无法做到 100% 准确。"
   },
+  "appNamed": [
+    {
+      "id": "named-cursor",
+      "names": ["Cursor"],
+      "motionGroup": "Idle",
+      "speeches": [
+        "Cursor 前台，写代码模式～",
+        "在 Cursor 里敲代码？我当你的小监工。",
+        "IDE 亮起来了，思路也要亮起来。",
+        "Cursor 时间，保存一下再继续？",
+        "人机结对编程，我在旁边卖萌。",
+        "代码窗口在前，我退到角落待机。",
+        "Cursor 里卡住了？拍我一下换口气。",
+        "今天的第一个 Tab 是哪个？"
+      ],
+      "variants": [
+        {
+          "when": { "timeOfDay": ["night"] },
+          "speeches": [
+            "Cursor 深夜还在亮…眼睛先休息？",
+            "夜里写代码，我小声陪着。",
+            "深夜 Cursor 战士，记得保存。",
+            "月亮睡了，Cursor 还醒着。",
+            "夜班 IDE 模式，别透支明天。",
+            "夜深了，Cursor 也温柔一点。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "named-wechat",
+      "names": ["微信", "WeChat"],
+      "motionGroup": "TapBody",
+      "speeches": [
+        "微信在前台，消息别回太晚。",
+        "聊天可以，也留点时间给自己。",
+        "微信叮咚，我在旁边看着。",
+        "红点清掉会很爽，对吧？",
+        "社交通讯中，我先不插话。",
+        "回消息也别太久，眨眨眼～",
+        "微信窗口亮了，节奏轻一点。",
+        "有事说事，没事也可以摸摸我。"
+      ]
+    },
+    {
+      "id": "named-steam",
+      "names": ["Steam"],
+      "motionGroup": "Tap",
+      "speeches": [
+        "Steam 启动了，副本还是代码？",
+        "游戏库在前台，适度快乐最持久。",
+        "Steam 时间到，记得站起来走走。",
+        "胜利很帅，输了也很可爱。",
+        "打完这把伸个懒腰，成交？",
+        "我在旁观席给你喊加油。",
+        "Steam 界面一开，气氛都不一样。",
+        "假期 buff：快乐 +1，熬夜 -1。"
+      ]
+    },
+    {
+      "id": "named-figma",
+      "names": ["Figma"],
+      "motionGroup": "Tap",
+      "speeches": [
+        "Figma 在前台，像素对齐了吗？",
+        "画布亮起来了，灵感冲冲冲。",
+        "Figma 时间，留白也是一种力量。",
+        "图层叠叠乐？记得命名哦。",
+        "配色和谐的人运气也不会差。",
+        "好看！再微调一点点？",
+        "导出前再瞄一眼细节～",
+        "创作中，我当你的小小评审团。"
+      ]
+    }
+  ],
   "app": [
     {
       "id": "app-game-weekend",

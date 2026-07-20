@@ -26,19 +26,55 @@ function pushRule(rules, entry) {
   rules.push(entry);
 }
 
-function listDialogueRules(catalog, disabledRuleIds = []) {
+function listDialogueRules(catalog, disabledRuleIds = [], meta = {}) {
   const disabled = new Set(
     Array.isArray(disabledRuleIds)
       ? disabledRuleIds.filter((id) => typeof id === "string" && id.trim())
       : []
   );
+  const builtinIds = meta.builtinIds ?? new Set();
+  const overlayIds = meta.overlayIds ?? new Set();
   const rules = [];
+
+  function resolveSourceLabel(ruleId) {
+    const inBuiltin = builtinIds.has(ruleId);
+    const inOverlay = overlayIds.has(ruleId);
+
+    if (inBuiltin && inOverlay) {
+      return "内置+扩展";
+    }
+
+    if (inOverlay) {
+      return "扩展";
+    }
+
+    return "内置";
+  }
+
+  for (const rule of catalog.appNamed ?? []) {
+    const names = [
+      ...(Array.isArray(rule.names) ? rule.names : []),
+      ...(typeof rule.appName === "string" ? [rule.appName] : [])
+    ].filter(Boolean);
+
+    pushRule(rules, {
+      id: rule.id,
+      category: "appNamed",
+      categoryLabel: "应用名",
+      sourceLabel: resolveSourceLabel(rule.id),
+      label: names.length > 0 ? names.join(" / ") : rule.id,
+      patternPreview: names.join(", "),
+      speechCount: (rule.speeches?.length ?? 0) + (rule.variants?.length ?? 0),
+      enabled: !disabled.has(rule.id)
+    });
+  }
 
   for (const rule of catalog.app ?? []) {
     pushRule(rules, {
       id: rule.id,
       category: "app",
       categoryLabel: "应用",
+      sourceLabel: resolveSourceLabel(rule.id),
       label: rule.id,
       patternPreview: summarizePatterns(rule.patterns),
       speechCount: (rule.speeches?.length ?? 0) + (rule.variants?.length ?? 0),
@@ -51,6 +87,7 @@ function listDialogueRules(catalog, disabledRuleIds = []) {
       id: rule.id,
       category: "ocr",
       categoryLabel: "OCR",
+      sourceLabel: resolveSourceLabel(rule.id),
       label: rule.id,
       patternPreview: summarizePatterns(rule.patterns),
       speechCount: (rule.speeches?.length ?? 0) + (rule.variants?.length ?? 0),
@@ -63,6 +100,7 @@ function listDialogueRules(catalog, disabledRuleIds = []) {
       id: rule.id,
       category: "agent",
       categoryLabel: "Agent",
+      sourceLabel: resolveSourceLabel(rule.id),
       label: rule.kind ? `${rule.id} (${rule.kind})` : rule.id,
       patternPreview: summarizePatterns(rule.patterns),
       speechCount: (rule.speeches?.length ?? 0) + (rule.variants?.length ?? 0),
@@ -79,6 +117,7 @@ function listDialogueRules(catalog, disabledRuleIds = []) {
       id,
       category: "vision",
       categoryLabel: "画面",
+      sourceLabel: resolveSourceLabel(id),
       label: key,
       patternPreview: entry?.motionGroup ? `动作 ${entry.motionGroup}` : "画面启发式",
       speechCount: speeches.length + (entry?.variants?.length ?? 0),

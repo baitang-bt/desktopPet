@@ -21,6 +21,8 @@ const DEFAULT_SETTINGS = {
   screenAwarenessEnabled: false,
   agentAlertEnabled: false,
   dialogueDisabledRuleIds: [],
+  dialogueUseBuiltin: true,
+  dialogueUseOverlay: true,
   motionTriggersByModel: {}
 };
 
@@ -134,6 +136,14 @@ function validateSettings(settings = {}) {
     screenAwarenessEnabled,
     agentAlertEnabled: Boolean(screenAwarenessEnabled && agentAlertRequested),
     dialogueDisabledRuleIds: validateDisabledRuleIds(settings.dialogueDisabledRuleIds),
+    dialogueUseBuiltin:
+      typeof settings.dialogueUseBuiltin === "boolean"
+        ? settings.dialogueUseBuiltin
+        : DEFAULT_SETTINGS.dialogueUseBuiltin,
+    dialogueUseOverlay:
+      typeof settings.dialogueUseOverlay === "boolean"
+        ? settings.dialogueUseOverlay
+        : DEFAULT_SETTINGS.dialogueUseOverlay,
     motionTriggersByModel: validateMotionTriggersByModel(settings.motionTriggersByModel)
   };
 }

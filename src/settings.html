@@ -209,11 +209,21 @@
         <section class="settings-panel" data-panel="dialogue">
           <header class="panel-header">
             <h1>词库</h1>
-            <p>启用或禁用规则；导入 JSON 与内置词库合并</p>
+            <p>选择词库来源，并勾选要启用的情景规则</p>
           </header>
 
           <div class="card card--wide">
             <p class="update-status" id="dialogue-status">使用内置词库</p>
+            <div class="dialogue-source-row">
+              <label class="dialogue-source-chip">
+                <input id="dialogue-use-builtin" type="checkbox" checked />
+                <span>使用内置词库</span>
+              </label>
+              <label class="dialogue-source-chip" id="dialogue-use-overlay-wrap">
+                <input id="dialogue-use-overlay" type="checkbox" checked />
+                <span>使用导入词库</span>
+              </label>
+            </div>
             <p class="path-display" id="dialogue-builtin-path" title="">内置路径加载中…</p>
             <p class="path-display" id="dialogue-overlay-path" title="">扩展：未导入</p>
             <div class="button-row">
@@ -231,6 +241,7 @@
               <span>分类</span>
               <select id="dialogue-filter-category" class="setting-control">
                 <option value="all">全部</option>
+                <option value="appNamed">应用名</option>
                 <option value="app">应用</option>
                 <option value="ocr">OCR</option>
                 <option value="agent">Agent</option>

@@ -387,59 +387,102 @@ input[type="range"] {
   color: var(--ink-soft);
 }
 
-.dialogue-rules-root {
-  display: grid;
+.dialogue-source-row {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  max-height: calc(100vh - 320px);
+  margin: 10px 0 12px;
+}
+
+.dialogue-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fffaf4;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.dialogue-source-chip input {
+  accent-color: var(--accent);
+}
+
+.dialogue-source-chip.is-disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dialogue-rules-root {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: flex-start;
+  max-height: calc(100vh - 360px);
   overflow-y: auto;
   padding-right: 4px;
 }
 
-.dialogue-rule {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 10px;
-  align-items: start;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--card);
-}
-
-.dialogue-rule.is-disabled {
-  opacity: 0.62;
-}
-
-.dialogue-rule-main {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.dialogue-rule-head {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.dialogue-chip {
+  display: inline-flex;
   align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  font-size: 12px;
+  cursor: pointer;
 }
 
-.dialogue-rule-head strong {
-  font-size: 13px;
+.dialogue-chip.is-disabled {
+  opacity: 0.55;
 }
 
-.badge {
-  padding: 2px 8px;
+.dialogue-chip.is-selected,
+.dialogue-chip:has(input:checked) {
+  border-color: var(--accent);
+  background: rgb(217 121 49 / 10%);
+}
+
+.dialogue-chip input {
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.dialogue-chip-text {
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.dialogue-chip-badge {
+  padding: 1px 7px;
   border-radius: 999px;
   background: rgb(217 121 49 / 14%);
   color: var(--accent-deep);
   font-size: 10px;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
-.dialogue-rule small {
+.dialogue-chip-source {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 6%);
   color: var(--ink-soft);
-  font-size: 11px;
-  word-break: break-word;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.dialogue-rule {
+  display: none;
 }
 
 @media (max-width: 560px) {

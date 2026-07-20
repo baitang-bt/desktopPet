@@ -11,6 +11,8 @@ const DEFAULT_SETTINGS = {
   screenAwarenessEnabled: false,
   agentAlertEnabled: false,
   dialogueDisabledRuleIds: [],
+  dialogueUseBuiltin: true,
+  dialogueUseOverlay: true,
   motionTriggersByModel: {}
 };
 
@@ -39,6 +41,9 @@ const installCursorHooksButton = document.querySelector("#install-cursor-hooks")
 const dialogueBuiltinPath = document.querySelector("#dialogue-builtin-path");
 const dialogueOverlayPath = document.querySelector("#dialogue-overlay-path");
 const dialogueStatus = document.querySelector("#dialogue-status");
+const dialogueUseBuiltinInput = document.querySelector("#dialogue-use-builtin");
+const dialogueUseOverlayInput = document.querySelector("#dialogue-use-overlay");
+const dialogueUseOverlayWrap = document.querySelector("#dialogue-use-overlay-wrap");
 const dialogueRulesRoot = document.querySelector("#dialogue-rules-root");
 const dialogueFilterCategory = document.querySelector("#dialogue-filter-category");
 const dialogueFilterText = document.querySelector("#dialogue-filter-text");
@@ -257,6 +262,19 @@ function renderDialogueInfo(info) {
     dialogueStatus.textContent = info.message ?? "";
   }
 
+  if (dialogueUseBuiltinInput) {
+    dialogueUseBuiltinInput.checked = info.dialogueUseBuiltin !== false;
+  }
+
+  if (dialogueUseOverlayInput) {
+    dialogueUseOverlayInput.checked = info.dialogueUseOverlay !== false;
+    dialogueUseOverlayInput.disabled = !info.hasOverlay;
+  }
+
+  if (dialogueUseOverlayWrap) {
+    dialogueUseOverlayWrap.classList.toggle("is-disabled", !info.hasOverlay);
+  }
+
   if (resetDialogueButton) {
     resetDialogueButton.disabled = !info.hasOverlay;
   }
@@ -307,8 +325,11 @@ function renderDialogueRules() {
   }
 
   for (const rule of rules) {
-    const row = document.createElement("label");
-    row.className = `dialogue-rule${rule.enabled ? "" : " is-disabled"}`;
+    const chip = document.createElement("label");
+    chip.className = `dialogue-chip${rule.enabled ? "" : " is-disabled"}`;
+    chip.title = rule.patternPreview
+      ? `${rule.id} · 匹配：${rule.patternPreview}`
+      : `${rule.id} · 台词池 ${rule.speechCount} 条`;
 
     const toggle = document.createElement("input");
     toggle.type = "checkbox";
@@ -318,29 +339,24 @@ function renderDialogueRules() {
       renderDialogueInfo(info);
     });
 
-    const main = document.createElement("div");
-    main.className = "dialogue-rule-main";
-
-    const head = document.createElement("div");
-    head.className = "dialogue-rule-head";
-
-    const title = document.createElement("strong");
-    title.textContent = rule.label;
+    const text = document.createElement("span");
+    text.className = "dialogue-chip-text";
+    text.textContent = rule.label;
 
     const badge = document.createElement("span");
-    badge.className = "badge";
+    badge.className = "dialogue-chip-badge";
     badge.textContent = rule.categoryLabel;
 
-    head.append(title, badge);
+    chip.append(toggle, text, badge);
 
-    const pattern = document.createElement("small");
-    pattern.textContent = rule.patternPreview
-      ? `匹配：${rule.patternPreview}`
-      : `台词池 ${rule.speechCount} 条`;
+    if (rule.sourceLabel && rule.sourceLabel !== "内置") {
+      const source = document.createElement("span");
+      source.className = "dialogue-chip-source";
+      source.textContent = rule.sourceLabel;
+      chip.append(source);
+    }
 
-    main.append(head, pattern);
-    row.append(toggle, main);
-    dialogueRulesRoot.append(row);
+    dialogueRulesRoot.append(chip);
   }
 }
 
@@ -573,6 +589,12 @@ resetDialogueButton?.addEventListener("click", async () => {
 });
 dialogueFilterCategory?.addEventListener("change", renderDialogueRules);
 dialogueFilterText?.addEventListener("input", renderDialogueRules);
+dialogueUseBuiltinInput?.addEventListener("change", () => {
+  updateSettings({ dialogueUseBuiltin: dialogueUseBuiltinInput.checked }).then(refreshDialogueInfo);
+});
+dialogueUseOverlayInput?.addEventListener("change", () => {
+  updateSettings({ dialogueUseOverlay: dialogueUseOverlayInput.checked }).then(refreshDialogueInfo);
+});
 idleTimeoutSelect.addEventListener("change", () =>
   updateSettings({ idleTimeoutSeconds: Number(idleTimeoutSelect.value) })
 );

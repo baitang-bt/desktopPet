@@ -21,4 +21,19 @@ describe("dialogue-rules", () => {
     assert.equal(rules.find((rule) => rule.id === "error")?.enabled, false);
     assert.equal(rules.find((rule) => rule.id === "vision:dark")?.category, "vision");
   });
+
+  it("lists appNamed rules with source labels", () => {
+    const rules = listDialogueRules(
+      {
+        appNamed: [{ id: "named-x", names: ["Cursor"], speeches: ["hi"] }],
+        app: [{ id: "app-focus", patterns: ["cursor"], speeches: ["code"] }]
+      },
+      [],
+      { builtinIds: new Set(["named-x", "app-focus"]), overlayIds: new Set(["app-focus"]) }
+    );
+
+    assert.equal(rules.find((rule) => rule.id === "named-x")?.category, "appNamed");
+    assert.equal(rules.find((rule) => rule.id === "named-x")?.sourceLabel, "内置");
+    assert.equal(rules.find((rule) => rule.id === "app-focus")?.sourceLabel, "内置+扩展");
+  });
 });

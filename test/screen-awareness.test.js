@@ -20,7 +20,9 @@ const { createScreenAwarenessController } = require("../electron/screen-awarenes
 
 describe("screen-awareness rules", () => {
   it("keeps multiple speeches per scenario for random replies", () => {
-    for (const rule of [...APP_RULES, ...OCR_RULES]) {
+    const { APP_NAMED_RULES } = require("../electron/screen-awareness-rules");
+
+    for (const rule of [...APP_NAMED_RULES, ...APP_RULES, ...OCR_RULES]) {
       assert.ok(rule.speeches.length >= 6, `${rule.id} should have a richer speech pool`);
     }
 
@@ -60,28 +62,33 @@ describe("screen-awareness rules", () => {
       { owner: { name: "Cursor" }, title: "main.js" },
       { now: new Date("2026-07-17T23:10:00") }
     );
-    assert.equal(nightFocus?.id, "app-focus");
-    assert.match(nightFocus.speech, /晚|夜|深|月亮|宵夜/);
+    assert.equal(nightFocus?.id, "named-cursor");
+    assert.match(nightFocus.speech, /晚|夜|深|月亮|Cursor|保存/);
 
     const weekendGame = matchAppReaction(
       { owner: { name: "Steam" } },
       { now: new Date("2026-07-18T15:00:00") }
     );
-    assert.equal(weekendGame?.id, "app-game-weekend");
+    assert.equal(weekendGame?.id, "named-steam");
   });
   it("matches focused coding apps", () => {
     const reaction = matchAppReaction({
       title: "main.js — cursor-desktop",
       owner: { name: "Cursor" }
     });
-    assert.equal(reaction?.id, "app-focus");
-    assert.equal(reaction?.source, "app");
+    assert.equal(reaction?.id, "named-cursor");
+    assert.equal(reaction?.source, "appNamed");
     assert.ok(reaction.speech);
   });
 
   it("matches chat and design apps", () => {
     assert.equal(matchAppReaction({ owner: { name: "Slack" } })?.id, "app-chat");
-    assert.equal(matchAppReaction({ owner: { name: "Figma" } })?.id, "app-design");
+    assert.equal(matchAppReaction({ owner: { name: "Figma" } })?.id, "named-figma");
+  });
+
+  it("matches appNamed rules by exact owner name", () => {
+    assert.equal(matchAppReaction({ owner: { name: "Steam" } })?.source, "appNamed");
+    assert.equal(matchAppReaction({ owner: { name: "微信" } })?.id, "named-wechat");
   });
 
   it("matches OCR error keywords", () => {

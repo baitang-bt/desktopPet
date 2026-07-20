@@ -74,7 +74,7 @@ describe("dialogue catalog", () => {
         owner: { name: "Cursor" },
         title: "a"
       });
-      assert.equal(reaction?.id, "app-focus");
+      assert.equal(reaction?.id, "named-cursor");
       assert.ok(
         ["测试扩展句", "看起来在认真干活呢，我陪你。"].includes(reaction.speech) ||
           typeof reaction.speech === "string"
@@ -84,6 +84,33 @@ describe("dialogue catalog", () => {
       const after = resolveActiveCatalog(userData);
       assert.equal(after.hasOverlay, false);
       applyDialogueCatalog(after.catalog);
+    } finally {
+      fs.rmSync(userData, { recursive: true, force: true });
+    }
+  });
+
+  it("respects builtin and overlay source toggles", () => {
+    const userData = fs.mkdtempSync(path.join(os.tmpdir(), "pet-dialogue-src-"));
+
+    try {
+      saveOverlayCatalog(userData, {
+        app: [{ id: "overlay-only", patterns: ["overlayapp"], speeches: ["仅扩展"] }]
+      });
+
+      const both = resolveActiveCatalog(userData, { useBuiltin: true, useOverlay: true });
+      assert.ok(both.catalog.app.some((rule) => rule.id === "app-focus"));
+      assert.ok(both.catalog.app.some((rule) => rule.id === "overlay-only"));
+
+      const builtinOnly = resolveActiveCatalog(userData, { useBuiltin: true, useOverlay: false });
+      assert.ok(builtinOnly.catalog.app.some((rule) => rule.id === "app-focus"));
+      assert.equal(builtinOnly.catalog.app.some((rule) => rule.id === "overlay-only"), false);
+
+      const overlayOnly = resolveActiveCatalog(userData, { useBuiltin: false, useOverlay: true });
+      assert.equal(overlayOnly.catalog.app.some((rule) => rule.id === "app-focus"), false);
+      assert.ok(overlayOnly.catalog.app.some((rule) => rule.id === "overlay-only"));
+
+      const none = resolveActiveCatalog(userData, { useBuiltin: false, useOverlay: false });
+      assert.equal(none.catalog.app.length, 0);
     } finally {
       fs.rmSync(userData, { recursive: true, force: true });
     }

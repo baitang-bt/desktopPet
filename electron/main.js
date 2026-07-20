@@ -49,7 +49,10 @@ const {
 } = require("./pet-size");
 const { normalizeForeignWindowList } = require("./window-bounds");
 const {
+  builtinCatalog,
   clearOverlay,
+  collectRuleIds,
+  loadOverlay,
   readJsonFile,
   resolveActiveCatalog,
   saveOverlayCatalog,
@@ -1064,14 +1067,47 @@ function revealLive2dDir(target = "dir") {
   return { ok: true, path: filePath, catalog: broadcastLive2dCatalog(catalog) };
 }
 
+function getDialogueSourceOptions() {
+  const settings = stateStore.getSettings();
+
+  return {
+    useBuiltin: settings.dialogueUseBuiltin !== false,
+    useOverlay: settings.dialogueUseOverlay !== false
+  };
+}
+
+function buildDialogueStatusMessage(resolved, summary) {
+  const parts = [];
+
+  if (resolved.useBuiltin) {
+    parts.push("内置");
+  }
+
+  if (resolved.useOverlay && resolved.hasOverlay) {
+    parts.push("导入");
+  } else if (resolved.useOverlay && !resolved.hasOverlay) {
+    parts.push("导入(未导入文件)");
+  }
+
+  if (parts.length === 0) {
+    return "词库来源已全部关闭，不会触发情景台词";
+  }
+
+  const namedPart = summary.appNamedRules > 0 ? ` / 应用名 ${summary.appNamedRules}` : "";
+
+  return `已启用：${parts.join(" + ")}（应用 ${summary.appRules}${namedPart} / OCR ${summary.ocrRules}）`;
+}
+
 function getDialogueInfo() {
   const userDataPath = app.getPath("userData");
-  const resolved = resolveActiveCatalog(userDataPath);
+  const sourceOptions = getDialogueSourceOptions();
+  const resolved = resolveActiveCatalog(userDataPath, sourceOptions);
+  const overlayOnly = resolved.hasOverlay ? loadOverlay(userDataPath) : null;
   const summary = summarizeCatalog(resolved.catalog);
-  const rules = listDialogueRules(
-    resolved.catalog,
-    stateStore.getSettings().dialogueDisabledRuleIds
-  );
+  const rules = listDialogueRules(resolved.catalog, stateStore.getSettings().dialogueDisabledRuleIds, {
+    builtinIds: collectRuleIds(builtinCatalog),
+    overlayIds: overlayOnly ? collectRuleIds(overlayOnly) : new Set()
+  });
 
   return {
     builtinSourcePath: resolved.builtinSourcePath,
@@ -1079,16 +1115,16 @@ function getDialogueInfo() {
     overlayPath: resolved.overlayPath,
     dialogueDir: resolved.dialogueDir,
     hasOverlay: resolved.hasOverlay,
+    dialogueUseBuiltin: sourceOptions.useBuiltin,
+    dialogueUseOverlay: sourceOptions.useOverlay,
     summary,
     rules,
-    message: resolved.hasOverlay
-      ? `已加载扩展词库（应用 ${summary.appRules} / OCR ${summary.ocrRules}）`
-      : `使用内置词库（应用 ${summary.appRules} / OCR ${summary.ocrRules}）`
+    message: buildDialogueStatusMessage(resolved, summary)
   };
 }
 
 function reloadDialogueCatalog() {
-  const resolved = resolveActiveCatalog(app.getPath("userData"));
+  const resolved = resolveActiveCatalog(app.getPath("userData"), getDialogueSourceOptions());
   applyDialogueCatalog(resolved.catalog);
   syncDialogueRuleFilters();
   return getDialogueInfo();
@@ -1558,6 +1594,13 @@ ipcMain.handle("settings:update", (_event, changes) => {
 
   if (Object.prototype.hasOwnProperty.call(changes, "dialogueDisabledRuleIds")) {
     syncDialogueRuleFilters();
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(changes, "dialogueUseBuiltin") ||
+    Object.prototype.hasOwnProperty.call(changes, "dialogueUseOverlay")
+  ) {
+    reloadDialogueCatalog();
   }
 
   if (
